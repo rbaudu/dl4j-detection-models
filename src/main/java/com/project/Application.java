@@ -88,22 +88,46 @@ public class Application {
                 new SoundExporter(config).export();
                 break;
                 
+            // Ajouter ces nouvelles commandes
+            case "test-presence":
+                log.info("Test du modèle de détection de présence");
+                com.project.test.ModelTestRunner.main(new String[]{"presence"});
+                break;
+                
+            case "test-activity":
+                log.info("Test du modèle de détection d'activité");
+                com.project.test.ModelTestRunner.main(new String[]{"activity"});
+                break;
+                
+            case "test-sound":
+                log.info("Test du modèle de détection de sons");
+                com.project.test.ModelTestRunner.main(new String[]{"sound"});
+                break;
+                
+            case "test-all":
+                log.info("Test de tous les modèles");
+                com.project.test.ModelTestRunner.main(new String[]{"all"});
+                break;
+                
             default:
                 printUsage();
                 break;
         }
-    }
-    
+    }    
     private static void printUsage() {
-        System.out.println("Usage: java -jar dl4j-detection-models.jar <commande>");
-        System.out.println("Commandes disponibles :");
-        System.out.println("  train-presence    : Entraîne le modèle de détection de présence");
-        System.out.println("  train-activity    : Entraîne le modèle de détection d'activité");
-        System.out.println("  train-sound       : Entraîne le modèle de détection de sons");
-        System.out.println("  train-all         : Entraîne tous les modèles");
-        System.out.println("  export-presence   : Exporte le modèle de détection de présence");
-        System.out.println("  export-activity   : Exporte le modèle de détection d'activité");
-        System.out.println("  export-sound      : Exporte le modèle de détection de sons");
-        System.out.println("  export-all        : Exporte tous les modèles");
+    	   System.out.println("Usage: java -jar dl4j-detection-models.jar <commande>");
+    	    System.out.println("Commandes disponibles :");
+    	    System.out.println("  train-presence    : Entraîne le modèle de détection de présence");
+    	    System.out.println("  train-activity    : Entraîne le modèle de détection d'activité");
+    	    System.out.println("  train-sound       : Entraîne le modèle de détection de sons");
+    	    System.out.println("  train-all         : Entraîne tous les modèles");
+    	    System.out.println("  export-presence   : Exporte le modèle de détection de présence");
+    	    System.out.println("  export-activity   : Exporte le modèle de détection d'activité");
+    	    System.out.println("  export-sound      : Exporte le modèle de détection de sons");
+    	    System.out.println("  export-all        : Exporte tous les modèles");
+    	    System.out.println("  test-presence     : Teste le modèle de détection de présence");
+    	    System.out.println("  test-activity     : Teste le modèle de détection d'activité");
+    	    System.out.println("  test-sound        : Teste le modèle de détection de sons");
+    	    System.out.println("  test-all          : Teste tous les modèles");
     }
 }
