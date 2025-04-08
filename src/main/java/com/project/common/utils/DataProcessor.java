@@ -14,6 +14,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 /**
@@ -165,5 +166,157 @@ public class DataProcessor {
         } else if (!directory.isDirectory()) {
             throw new IOException("Le chemin existe mais n'est pas un répertoire : " + path);
         }
+    }
+    
+    /**
+     * Crée un ensemble de données d'images synthétiques pour l'entraînement.
+     * Utile lorsque les vraies données ne sont pas disponibles.
+     *
+     * @param numExamples Nombre total d'exemples à générer
+     * @param height Hauteur des images
+     * @param width Largeur des images
+     * @param channels Nombre de canaux (3 pour RGB)
+     * @param numClasses Nombre de classes
+     * @param random Générateur de nombres aléatoires
+     * @return DataSet contenant les données synthétiques
+     */
+    public static DataSet createSyntheticImageDataSet(
+            int numExamples, int height, int width, int channels, int numClasses, Random random) {
+        
+        log.info("Création d'un ensemble de données d'images synthétiques: {}x{}x{}, {} classes, {} exemples",
+                height, width, channels, numClasses, numExamples);
+        
+        // Créer les caractéristiques (images synthétiques)
+        INDArray features = Nd4j.rand(new int[]{numExamples, channels, height, width}, random);
+        
+        // Normaliser entre -1 et 1 pour MobileNetV2
+        features = features.mul(2).sub(1);
+        
+        // Créer les étiquettes one-hot
+        INDArray labels = Nd4j.zeros(numExamples, numClasses);
+        
+        // Attribuer des classes aléatoires, en essayant d'équilibrer les classes
+        int examplesPerClass = numExamples / numClasses;
+        int remainder = numExamples % numClasses;
+        
+        int currentIndex = 0;
+        for (int classIdx = 0; classIdx < numClasses; classIdx++) {
+            int classExamples = examplesPerClass + (classIdx < remainder ? 1 : 0);
+            
+            for (int i = 0; i < classExamples && currentIndex < numExamples; i++) {
+                labels.putScalar(currentIndex, classIdx, 1.0);
+                currentIndex++;
+            }
+        }
+        
+        // Mélanger les exemples pour éviter tout biais dans l'ordre
+        DataSet dataset = new DataSet(features, labels);
+        dataset.shuffle();
+        
+        log.info("Ensemble de données synthétiques créé avec succès");
+        
+        return dataset;
+    }
+    
+    /**
+     * Crée un ensemble de données audio synthétiques pour l'entraînement.
+     * Utile lorsque les vraies données ne sont pas disponibles.
+     *
+     * @param numExamples Nombre total d'exemples à générer
+     * @param sampleLength Longueur de l'échantillon audio
+     * @param numClasses Nombre de classes
+     * @param random Générateur de nombres aléatoires
+     * @return DataSet contenant les données synthétiques
+     */
+    public static DataSet createSyntheticAudioDataSet(
+            int numExamples, int sampleLength, int numClasses, Random random) {
+        
+        log.info("Création d'un ensemble de données audio synthétiques: longueur={}, {} classes, {} exemples",
+                sampleLength, numClasses, numExamples);
+        
+        // Créer les caractéristiques (données audio synthétiques)
+        INDArray features = Nd4j.zeros(numExamples, sampleLength);
+        
+        // Générer des formes d'onde différentes pour chaque classe
+        for (int i = 0; i < numExamples; i++) {
+            int classIdx = i % numClasses;
+            
+            // Générer une forme d'onde différente selon la classe
+            switch (classIdx) {
+                case 0: // Silence (bruit faible)
+                    for (int j = 0; j < sampleLength; j++) {
+                        features.putScalar(i, j, (random.nextDouble() - 0.5) * 0.1);
+                    }
+                    break;
+                    
+                case 1: // Parole (mélange de fréquences)
+                    for (int j = 0; j < sampleLength; j++) {
+                        double t = j / (double) sampleLength;
+                        features.putScalar(i, j, 
+                                0.5 * Math.sin(2 * Math.PI * 500 * t) + 
+                                0.3 * Math.sin(2 * Math.PI * 1000 * t) +
+                                0.2 * (random.nextDouble() - 0.5));
+                    }
+                    break;
+                    
+                case 2: // Musique (harmoniques)
+                    for (int j = 0; j < sampleLength; j++) {
+                        double t = j / (double) sampleLength;
+                        features.putScalar(i, j, 
+                                0.4 * Math.sin(2 * Math.PI * 440 * t) + 
+                                0.3 * Math.sin(2 * Math.PI * 880 * t) +
+                                0.2 * Math.sin(2 * Math.PI * 1320 * t) +
+                                0.1 * (random.nextDouble() - 0.5));
+                    }
+                    break;
+                    
+                case 3: // Bruit ambiant
+                    for (int j = 0; j < sampleLength; j++) {
+                        features.putScalar(i, j, (random.nextDouble() - 0.5) * 0.6);
+                    }
+                    break;
+                    
+                case 4: // Alarme (signal périodique)
+                    for (int j = 0; j < sampleLength; j++) {
+                        double t = j / (double) sampleLength;
+                        double sawtoothWave = 2 * (t * 5 - Math.floor(t * 5 + 0.5));
+                        features.putScalar(i, j, sawtoothWave);
+                    }
+                    break;
+                    
+                default: // Autres types de sons (générés aléatoirement)
+                    double frequency = 200 + (classIdx * 100); // Fréquence différente pour chaque classe
+                    for (int j = 0; j < sampleLength; j++) {
+                        double t = j / (double) sampleLength;
+                        features.putScalar(i, j, 
+                                0.7 * Math.sin(2 * Math.PI * frequency * t) +
+                                0.3 * (random.nextDouble() - 0.5));
+                    }
+                    break;
+            }
+        }
+        
+        // Normaliser entre -1 et 1
+        double maxVal = features.maxNumber().doubleValue();
+        double minVal = features.minNumber().doubleValue();
+        double maxAbs = Math.max(Math.abs(maxVal), Math.abs(minVal));
+        if (maxAbs > 0) {
+            features = features.div(maxAbs);
+        }
+        
+        // Créer les étiquettes one-hot
+        INDArray labels = Nd4j.zeros(numExamples, numClasses);
+        for (int i = 0; i < numExamples; i++) {
+            int classIdx = i % numClasses;
+            labels.putScalar(i, classIdx, 1.0);
+        }
+        
+        // Mélanger les exemples pour éviter tout biais dans l'ordre
+        DataSet dataset = new DataSet(features, labels);
+        dataset.shuffle();
+        
+        log.info("Ensemble de données audio synthétiques créé avec succès");
+        
+        return dataset;
     }
 }
