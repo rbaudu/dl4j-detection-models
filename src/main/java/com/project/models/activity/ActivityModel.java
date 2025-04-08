@@ -1,6 +1,7 @@
 package com.project.models.activity;
 
 import com.project.common.utils.ModelUtils;
+import com.project.common.utils.TransferLearningHelper;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
@@ -9,11 +10,16 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 /**
  * Modèle de détection d'activité.
  * Cette classe encapsule toute la logique spécifique au modèle de détection d'activité.
+ * Utilise le transfert d'apprentissage avec MobileNetV2 pour la classification d'activités.
  */
 public class ActivityModel {
     private static final Logger log = LoggerFactory.getLogger(ActivityModel.class);
@@ -23,6 +29,8 @@ public class ActivityModel {
     private final String modelName;
     private final String modelDir;
     private final int numActivityClasses;
+    private final Map<Integer, String> labelMap;
+    private final List<String> activityLabels;
     
     /**
      * Constructeur avec configuration.
@@ -33,36 +41,59 @@ public class ActivityModel {
         this.config = config;
         this.modelName = config.getProperty("activity.model.name", "activity_model");
         this.modelDir = config.getProperty("activity.model.dir", "models/activity");
-        // Par défaut, on considère 4 classes d'activité: repos, marche, course, autre
-        this.numActivityClasses = Integer.parseInt(config.getProperty("activity.model.num.classes", "4"));
+        
+        // Initialiser les labels des activités
+        this.activityLabels = Arrays.asList(
+            "CLEANING", "CONVERSING", "COOKING", "DANCING", "EATING", "FEEDING",
+            "GOING_TO_SLEEP", "KNITTING", "IRONING", "LISTENING_MUSIC", "MOVING",
+            "NEEDING_HELP", "PHONING", "PLAYING", "PLAYING_MUSIC", "PUTTING_AWAY",
+            "READING", "RECEIVING", "SINGING", "SLEEPING", "UNKNOWN", "USING_SCREEN",
+            "WAITING", "WAKING_UP", "WASHING", "WATCHING_TV", "WRITING"
+        );
+        
+        this.numActivityClasses = activityLabels.size();
+        
+        // Initialiser la map des étiquettes
+        this.labelMap = new HashMap<>();
+        initLabelMap();
+    }
+    
+    /**
+     * Initialise la map des étiquettes pour les classes d'activité.
+     */
+    private void initLabelMap() {
+        for (int i = 0; i < activityLabels.size(); i++) {
+            labelMap.put(i, activityLabels.get(i));
+        }
+        log.info("Map des étiquettes d'activités initialisée avec {} classes", labelMap.size());
     }
     
     /**
      * Initialise un nouveau modèle basé sur la configuration.
+     * Utilise le transfert d'apprentissage avec MobileNetV2.
      */
     public void initNewModel() {
         log.info("Initialisation d'un nouveau modèle de détection d'activité avec {} classes", numActivityClasses);
         
-        // Obtenir les paramètres depuis la configuration
-        int seed = Integer.parseInt(config.getProperty("training.seed", "123"));
-        boolean useRegularization = Boolean.parseBoolean(config.getProperty("training.use.regularization", "true"));
-        double l2 = Double.parseDouble(config.getProperty("training.l2", "0.0001"));
-        double dropout = Double.parseDouble(config.getProperty("training.dropout", "0.5"));
-        String updater = config.getProperty("training.updater", "adam");
-        
-        // Paramètres spécifiques au modèle d'activité
-        int inputSize = Integer.parseInt(config.getProperty("activity.model.input.size", "128"));
-        int hiddenLayers = Integer.parseInt(config.getProperty("activity.model.hidden.layers", "3"));
-        int hiddenSize = Integer.parseInt(config.getProperty("activity.model.hidden.size", "256"));
-        double learningRate = Double.parseDouble(config.getProperty("activity.model.learning.rate", "0.0005"));
-        
-        // Créer le modèle avec le nombre de classes d'activité approprié
-        this.network = ModelUtils.createDenseNetwork(
-                seed, inputSize, hiddenLayers, hiddenSize, numActivityClasses,
-                learningRate, updater, useRegularization, l2, dropout);
-        
-        this.network.init();
-        log.info("Modèle de détection d'activité initialisé avec succès");
+        try {
+            // Charger les paramètres depuis la configuration
+            int seed = Integer.parseInt(config.getProperty("training.seed", "123"));
+            double learningRate = Double.parseDouble(config.getProperty("activity.model.learning.rate", "0.0005"));
+            
+            // Charger MobileNetV2 et l'adapter pour notre tâche de classification d'activités
+            this.network = TransferLearningHelper.loadMobileNetV2ForActivityClassification(
+                    numActivityClasses, seed, learningRate);
+            
+            log.info("Modèle de détection d'activité initialisé avec succès par transfert d'apprentissage");
+            
+        } catch (IOException e) {
+            log.error("Erreur lors du chargement du modèle pré-entraîné", e);
+            log.info("Initialisation d'un modèle standard en fallback");
+            
+            // Fallback: créer un modèle standard si le transfert d'apprentissage échoue
+            this.network = ModelUtils.createModelFromConfig(config, "activity");
+            this.network.init();
+        }
     }
     
     /**
@@ -157,6 +188,27 @@ public class ActivityModel {
     }
     
     /**
+     * Obtient l'étiquette textuelle pour une classe d'activité.
+     * 
+     * @param classIndex Indice de la classe
+     * @return Étiquette de la classe
+     */
+    public String getLabelForClass(int classIndex) {
+        return labelMap.get(classIndex);
+    }
+    
+    /**
+     * Prédit la classe d'activité la plus probable et retourne son étiquette.
+     * 
+     * @param input Données d'entrée
+     * @return Étiquette de la classe d'activité la plus probable
+     */
+    public String predictLabel(double[] input) {
+        int classIndex = predictClass(input);
+        return getLabelForClass(classIndex);
+    }
+    
+    /**
      * Obtient le réseau neuronal sous-jacent.
      * 
      * @return Le réseau neuronal
@@ -198,5 +250,23 @@ public class ActivityModel {
      */
     public int getNumActivityClasses() {
         return numActivityClasses;
+    }
+    
+    /**
+     * Obtient la liste des étiquettes d'activité.
+     * 
+     * @return Liste des étiquettes d'activité
+     */
+    public List<String> getActivityLabels() {
+        return activityLabels;
+    }
+    
+    /**
+     * Obtient la map des classes d'activité.
+     * 
+     * @return Map des indices aux étiquettes d'activité
+     */
+    public Map<Integer, String> getLabelMap() {
+        return new HashMap<>(labelMap);
     }
 }
