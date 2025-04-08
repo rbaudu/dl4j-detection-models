@@ -1,6 +1,7 @@
 package com.project.models.sound;
 
 import com.project.common.utils.ModelUtils;
+import com.project.common.utils.TransferLearningHelper;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
@@ -16,6 +17,7 @@ import java.util.Properties;
 /**
  * Modèle de détection de sons.
  * Cette classe encapsule toute la logique spécifique au modèle de détection de sons.
+ * Utilise le transfert d'apprentissage avec YAMNet pour la classification de sons.
  */
 public class SoundModel {
     private static final Logger log = LoggerFactory.getLogger(SoundModel.class);
@@ -81,31 +83,31 @@ public class SoundModel {
     
     /**
      * Initialise un nouveau modèle basé sur la configuration.
+     * Utilise le transfert d'apprentissage avec YAMNet.
      */
     public void initNewModel() {
         log.info("Initialisation d'un nouveau modèle de détection de sons avec {} classes", numSoundClasses);
         
-        // Obtenir les paramètres depuis la configuration
-        int seed = Integer.parseInt(config.getProperty("training.seed", "123"));
-        boolean useRegularization = Boolean.parseBoolean(config.getProperty("training.use.regularization", "true"));
-        double l2 = Double.parseDouble(config.getProperty("training.l2", "0.0001"));
-        double dropout = Double.parseDouble(config.getProperty("training.dropout", "0.5"));
-        String updater = config.getProperty("training.updater", "adam");
-        
-        // Paramètres spécifiques au modèle de sons
-        int inputSize = Integer.parseInt(config.getProperty("sound.model.input.size", "256"));
-        int hiddenLayers = Integer.parseInt(config.getProperty("sound.model.hidden.layers", "4"));
-        int hiddenSize = Integer.parseInt(config.getProperty("sound.model.hidden.size", "512"));
-        double learningRate = Double.parseDouble(config.getProperty("sound.model.learning.rate", "0.0001"));
-        
-        // Créer le modèle avec le nombre de classes de sons approprié
-        this.network = ModelUtils.createDenseNetwork(
-                seed, inputSize, hiddenLayers, hiddenSize, numSoundClasses,
-                learningRate, updater, useRegularization, l2, dropout);
-        
-        this.network.init();
-        log.info("Modèle de détection de sons initialisé avec succès");
-        log.info("Classes de sons configurées: {}", labelMap);
+        try {
+            // Obtenir les paramètres depuis la configuration
+            int seed = Integer.parseInt(config.getProperty("training.seed", "123"));
+            double learningRate = Double.parseDouble(config.getProperty("sound.model.learning.rate", "0.0001"));
+            
+            // Charger YAMNet et l'adapter pour notre tâche de classification de sons
+            this.network = TransferLearningHelper.loadYAMNetForSoundClassification(
+                    numSoundClasses, seed, learningRate);
+            
+            log.info("Modèle de détection de sons initialisé avec succès par transfert d'apprentissage");
+            log.info("Classes de sons configurées: {}", labelMap);
+            
+        } catch (IOException e) {
+            log.error("Erreur lors du chargement du modèle pré-entraîné", e);
+            log.info("Initialisation d'un modèle standard en fallback");
+            
+            // Fallback: créer un modèle standard si le transfert d'apprentissage échoue
+            this.network = ModelUtils.createModelFromConfig(config, "sound");
+            this.network.init();
+        }
     }
     
     /**
