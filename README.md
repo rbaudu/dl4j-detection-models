@@ -3,10 +3,19 @@
 Ce projet fournit une infrastructure Java complète pour l'entraînement et l'exportation de modèles de détection utilisant Deeplearning4j (DL4J). Le projet inclut trois types de modèles de détection :
 
 1. **Détection de présence** : Détecte la présence d'objets ou de personnes
-2. **Détection d'activité** : Classifie différents types d'activités
+2. **Détection d'activité** : Classifie différents types d'activités (27 classes différentes)
 3. **Détection de sons** : Identifie et classifie différents types de sons
 
 Les modèles sont exportés au format ZIP compatible avec DL4J, ce qui permet de les intégrer facilement dans d'autres applications Java.
+
+## Transfert d'apprentissage
+
+Cette implémentation utilise le **transfert d'apprentissage** avec des modèles pré-entraînés pour améliorer les performances :
+
+- **MobileNetV2** pour la détection d'activité (classification d'images)
+- **YAMNet** pour la détection de sons (classification audio)
+
+Cette approche permet d'obtenir de bonnes performances même avec un nombre limité de données d'entraînement.
 
 ## Structure du projet
 
@@ -21,7 +30,19 @@ project-root/
 │       ├── java/                    # Code source Java
 │       │   └── com/project/
 │       │       ├── common/          # Code commun
+│       │       │   ├── config/      # Gestion de la configuration
+│       │       │   └── utils/       # Classes utilitaires
+│       │       │       ├── AudioUtils.java      # Traitement audio
+│       │       │       ├── DataProcessor.java   # Traitement de données
+│       │       │       ├── ImageUtils.java      # Traitement d'images
+│       │       │       ├── ModelUtils.java      # Gestion des modèles
+│       │       │       └── TransferLearningHelper.java  # Transfert d'apprentissage
+│       │       │
 │       │       ├── models/          # Définition des modèles
+│       │       │   ├── activity/    # Modèle d'activité (MobileNetV2)
+│       │       │   ├── presence/    # Modèle de présence
+│       │       │   └── sound/       # Modèle de son (YAMNet)
+│       │       │
 │       │       ├── training/        # Entraînement des modèles
 │       │       ├── export/          # Exportation des modèles
 │       │       └── Application.java # Point d'entrée
@@ -33,7 +54,11 @@ project-root/
 ├── data/                            # Données d'entraînement
 │   ├── raw/                         # Données brutes
 │   │   ├── presence/
-│   │   ├── activity/
+│   │   ├── activity/                # Images classées par répertoires d'activités
+│   │   │   ├── CLEANING/
+│   │   │   ├── CONVERSING/
+│   │   │   ├── COOKING/
+│   │   │   └── ...                  # Autres activités
 │   │   └── sound/
 │   │
 │   └── processed/                   # Données prétraitées
@@ -55,6 +80,50 @@ project-root/
 │
 └── pom.xml                          # Configuration Maven
 ```
+
+## Classes d'activité
+
+Le modèle de détection d'activité prend en charge les 27 classes suivantes :
+
+1. CLEANING - Nettoyer - Clean
+2. CONVERSING - Converser, parler - Converse, speak
+3. COOKING - Préparer à manger - Cook
+4. DANCING - Danser - Dance
+5. EATING - Manger - Eat
+6. FEEDING - Nourrir le chien/chat/oiseaux/poissons - Feed
+7. GOING_TO_SLEEP - Se coucher - Go to sleep
+8. KNITTING - Tricoter/coudre - Knit
+9. IRONING - Repasser - Iron
+10. LISTENING_MUSIC - Ecouter de la musique/radio - Listen to music/radio
+11. MOVING - Se déplacer - Move
+12. NEEDING_HELP - Avoir besoin d'assistance - Need_help
+13. PHONING - Téléphoner - Phone
+14. PLAYING - Jouer - Play
+15. PLAYING_MUSIC - Jouer de la musique - Play music
+16. PUTTING_AWAY - Ranger - Put
+17. READING - Lire - Read
+18. RECEIVING - Recevoir quelqu'un - Receive
+19. SINGING - Chanter - Sing
+20. SLEEPING - Dormir - Sleep
+21. UNKNOWN - Autre - Other
+22. USING_SCREEN - Utiliser un écran (PC, laptop, tablet, smartphone) - Use screen
+23. WAITING - Ne rien faire, s'ennuyer - Wait
+24. WAKING_UP - Se lever - Wake up
+25. WASHING - Se laver, passer aux toilettes - Wash
+26. WATCHING_TV - Regarder la télévision - Watch_TV
+27. WRITING - Ecrire - Write
+
+## Classes de sons
+
+Le modèle de détection de sons prend en charge les classes suivantes par défaut :
+
+1. Silence
+2. Parole
+3. Musique
+4. Bruit ambiant
+5. Alarme
+
+Ces classes peuvent être personnalisées dans le fichier de configuration.
 
 ## Prérequis
 
@@ -80,6 +149,32 @@ Ce script compilera le projet et créera les répertoires nécessaires.
 ## Configuration
 
 Tous les paramètres de configuration sont centralisés dans le fichier `config/application.properties`. Vous pouvez modifier ce fichier pour ajuster les paramètres des modèles, les chemins de données, etc.
+
+### Paramètres importants pour le transfert d'apprentissage
+
+```properties
+# Configuration pour MobileNetV2 (activité)
+activity.model.learning.rate=0.0005
+activity.training.examples.per.class=20
+
+# Configuration pour YAMNet (sons)
+sound.model.learning.rate=0.0001
+sound.model.num.classes=5
+```
+
+## Préparation des données
+
+### Modèle d'activité
+Placez vos images d'activités dans des sous-répertoires correspondant aux noms des classes dans `data/raw/activity/`. Par exemple :
+```
+data/raw/activity/COOKING/image1.jpg
+data/raw/activity/COOKING/image2.jpg
+data/raw/activity/READING/image1.jpg
+...
+```
+
+### Modèle de sons
+Placez vos fichiers audio dans `data/raw/sound/`. Le système essaiera de déterminer la classe à partir du nom du fichier ou du répertoire parent.
 
 ## Utilisation
 
@@ -129,23 +224,12 @@ INDArray input = ... // Préparer les données d'entrée
 INDArray output = model.output(input);
 ```
 
-## Personnalisation
+## Avantages du transfert d'apprentissage
 
-### Ajout de nouvelles données d'entraînement
-
-Pour ajouter vos propres données d'entraînement, placez-les dans les répertoires correspondants sous `data/raw/` :
-- `data/raw/presence/` pour les données de détection de présence
-- `data/raw/activity/` pour les données de détection d'activité
-- `data/raw/sound/` pour les données de détection de sons
-
-### Modification des paramètres des modèles
-
-Modifiez le fichier `config/application.properties` pour ajuster les paramètres des modèles, tels que :
-- Taille des couches
-- Taux d'apprentissage
-- Nombre d'époques
-- Taille des batches
-- etc.
+- **Meilleure performance** : Utilise des caractéristiques déjà apprises sur des millions d'images ou de sons
+- **Moins de données requises** : Fonctionne bien même avec peu d'exemples par classe
+- **Entraînement plus rapide** : Seules les dernières couches sont entraînées, ce qui accélère considérablement le processus
+- **Meilleure généralisation** : Les modèles pré-entraînés ont appris des représentations robustes qui se généralisent bien à de nouvelles données
 
 ## Licence
 
