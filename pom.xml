@@ -46,6 +46,34 @@
             <version>${dl4j.version}</version>
         </dependency>
 
+        <!-- DataVec extensions for image processing -->
+        <dependency>
+            <groupId>org.datavec</groupId>
+            <artifactId>datavec-data-image</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
+
+        <!-- DataVec extensions for audio processing -->
+        <dependency>
+            <groupId>org.datavec</groupId>
+            <artifactId>datavec-data-audio</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
+
+        <!-- Support for TensorFlow model import -->
+        <dependency>
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-modelimport</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
+
+        <!-- Support for zoo models -->
+        <dependency>
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-zoo</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
+
         <!-- Logging -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
