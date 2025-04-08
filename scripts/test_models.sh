@@ -1,7 +1,7 @@
 #!/bin/bash
 # scripts/test_models.sh
 
-# Ce script permet de tester les modèles de détection
+# Ce script permet de tester les modèles de détection de manière simplifée
 
 # Vérifier la présence de l'argument
 if [ $# -eq 0 ]; then
@@ -21,7 +21,7 @@ fi
 
 # Exécuter le test
 echo "Lancement du test pour le modèle: $MODEL"
-java -cp "$JAR_FILE" com.project.test.ModelTestRunner $MODEL
+java -jar "$JAR_FILE" "test-$MODEL"
 
 # Vérifier le résultat
 if [ $? -eq 0 ]; then

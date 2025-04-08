@@ -88,27 +88,21 @@ public class Application {
                 new SoundExporter(config).export();
                 break;
                 
-            // Ajouter ces nouvelles commandes
             case "test-presence":
                 log.info("Test du modèle de détection de présence");
-                com.project.test.ModelTestRunner.main(new String[]{"presence"});
-                break;
-                
+                return new ModelValidator(config).validatePresenceModel();
+
             case "test-activity":
                 log.info("Test du modèle de détection d'activité");
-                com.project.test.ModelTestRunner.main(new String[]{"activity"});
-                break;
-                
+                return new ModelValidator(config).validateActivityModel();
+
             case "test-sound":
                 log.info("Test du modèle de détection de sons");
-                com.project.test.ModelTestRunner.main(new String[]{"sound"});
-                break;
-                
+                return new ModelValidator(config).validateSoundModel();
+
             case "test-all":
                 log.info("Test de tous les modèles");
-                com.project.test.ModelTestRunner.main(new String[]{"all"});
-                break;
-                
+                return new ModelValidator(config).validateAllModels();                
             default:
                 printUsage();
                 break;
