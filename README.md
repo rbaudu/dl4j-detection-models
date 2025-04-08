@@ -26,30 +26,36 @@ project-root/
 │   └── application.properties       # Paramètres pour tous les modèles
 │
 ├── src/
-│   └── main/
-│       ├── java/                    # Code source Java
-│       │   └── com/project/
-│       │       ├── common/          # Code commun
-│       │       │   ├── config/      # Gestion de la configuration
-│       │       │   └── utils/       # Classes utilitaires
-│       │       │       ├── AudioUtils.java      # Traitement audio
-│       │       │       ├── DataProcessor.java   # Traitement de données
-│       │       │       ├── ImageUtils.java      # Traitement d'images
-│       │       │       ├── ModelUtils.java      # Gestion des modèles
-│       │       │       └── TransferLearningHelper.java  # Transfert d'apprentissage
-│       │       │
-│       │       ├── models/          # Définition des modèles
-│       │       │   ├── activity/    # Modèle d'activité (MobileNetV2)
-│       │       │   ├── presence/    # Modèle de présence
-│       │       │   └── sound/       # Modèle de son (YAMNet)
-│       │       │
-│       │       ├── training/        # Entraînement des modèles
-│       │       ├── export/          # Exportation des modèles
-│       │       └── Application.java # Point d'entrée
-│       │
-│       └── resources/               # Ressources
-│           ├── log4j2.xml           # Configuration de logging
-│           └── default-config.properties
+│   ├── main/
+│   │   ├── java/                    # Code source Java
+│   │   │   └── com/project/
+│   │   │       ├── common/          # Code commun
+│   │   │       │   ├── config/      # Gestion de la configuration
+│   │   │       │   └── utils/       # Classes utilitaires
+│   │   │       │       ├── AudioUtils.java      # Traitement audio
+│   │   │       │       ├── DataProcessor.java   # Traitement de données
+│   │   │       │       ├── ImageUtils.java      # Traitement d'images
+│   │   │       │       ├── ModelUtils.java      # Gestion des modèles
+│   │   │       │       └── TransferLearningHelper.java  # Transfert d'apprentissage
+│   │   │       │
+│   │   │       ├── models/          # Définition des modèles
+│   │   │       │   ├── activity/    # Modèle d'activité (MobileNetV2)
+│   │   │       │   ├── presence/    # Modèle de présence
+│   │   │       │   └── sound/       # Modèle de son (YAMNet)
+│   │   │       │
+│   │   │       ├── training/        # Entraînement des modèles
+│   │   │       ├── export/          # Exportation des modèles
+│   │   │       ├── test/            # Tests des modèles
+│   │   │       └── Application.java # Point d'entrée
+│   │   │
+│   │   └── resources/               # Ressources
+│   │       ├── log4j2.xml           # Configuration de logging
+│   │       └── default-config.properties
+│   │
+│   └── test/                        # Tests unitaires et d'intégration
+│       └── java/
+│           └── com/project/
+│               └── test/            # Tests des modèles générés
 │
 ├── data/                            # Données d'entraînement
 │   ├── raw/                         # Données brutes
@@ -76,6 +82,7 @@ project-root/
 ├── scripts/                         # Scripts utilitaires
 │   ├── build.sh
 │   ├── train_all.sh
+│   ├── test_models.sh               # Script pour tester les modèles
 │   └── export_all.sh
 │
 └── pom.xml                          # Configuration Maven
@@ -160,6 +167,10 @@ activity.training.examples.per.class=20
 # Configuration pour YAMNet (sons)
 sound.model.learning.rate=0.0001
 sound.model.num.classes=5
+
+# Configuration pour les tests
+test.min.accuracy=0.7
+test.num.samples=100
 ```
 
 ## Préparation des données
@@ -192,6 +203,33 @@ java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar tr
 java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-sound
 ```
 
+### Test des modèles
+
+Une fonctionnalité importante du projet est la capacité de tester les modèles générés avant de les exporter. Cela permet de s'assurer que les modèles sont correctement formés et pourront être chargés sans problème par l'application externe Java DL4J.
+
+Pour tester tous les modèles :
+```
+./scripts/test_models.sh
+```
+ou
+```
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-all
+```
+
+Pour tester un modèle spécifique :
+```
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-presence
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-activity
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-sound
+```
+
+Les tests effectuent les vérifications suivantes :
+1. **Chargement** : Vérifie que le modèle peut être chargé depuis le disque
+2. **Validation structurelle** : S'assure que le modèle a la structure attendue et peut traiter des entrées
+3. **Test de performance** : Évalue la précision du modèle sur des données de test synthétiques
+
+Ces tests utilisent des données générées synthétiquement qui simulent les caractéristiques attendues pour chaque type de modèle. Le seuil minimal de précision acceptable est configurable via le paramètre `test.min.accuracy` dans le fichier de configuration.
+
 ### Exportation des modèles
 
 Pour exporter tous les modèles au format DL4J :
@@ -207,6 +245,35 @@ java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar ex
 ```
 
 Les modèles exportés seront placés dans le répertoire `export/` au format ZIP.
+
+## Workflow complet recommandé
+
+Pour obtenir des modèles fiables et bien testés, nous recommandons le workflow suivant :
+
+1. **Entraînement** : Entraîner les modèles avec vos données
+2. **Test** : Vérifier que les modèles fonctionnent correctement
+3. **Export** : Exporter les modèles validés pour utilisation externe
+
+Exemple de script automatisant ce processus :
+```bash
+#!/bin/bash
+
+# Entraîner les modèles
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-all
+
+# Tester les modèles
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-all
+
+# Si les tests réussissent, exporter les modèles
+if [ $? -eq 0 ]; then
+    echo "Tests réussis, exportation des modèles..."
+    java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-all
+    echo "Exportation terminée avec succès!"
+else
+    echo "Tests échoués. Les modèles nécessitent une révision."
+    exit 1
+fi
+```
 
 ## Utilisation des modèles exportés
 
@@ -230,6 +297,20 @@ INDArray output = model.output(input);
 - **Moins de données requises** : Fonctionne bien même avec peu d'exemples par classe
 - **Entraînement plus rapide** : Seules les dernières couches sont entraînées, ce qui accélère considérablement le processus
 - **Meilleure généralisation** : Les modèles pré-entraînés ont appris des représentations robustes qui se généralisent bien à de nouvelles données
+
+## Personnalisation des tests
+
+Si vous souhaitez utiliser de vraies données de test au lieu de données synthétiques, vous pouvez :
+
+1. Ajouter des sous-répertoires `test` dans les dossiers de données (`data/raw/presence/test`, etc.)
+2. Placer vos données de test dans ces répertoires
+3. Modifier la configuration pour pointer vers ces répertoires :
+
+```properties
+presence.test.data.dir=data/raw/presence/test
+activity.test.data.dir=data/raw/activity/test
+sound.test.data.dir=data/raw/sound/test
+```
 
 ## Licence
 
