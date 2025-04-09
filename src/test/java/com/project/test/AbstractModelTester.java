@@ -69,12 +69,13 @@ public abstract class AbstractModelTester implements ModelTester {
             result.setF1Score(eval.f1());
             
             // Ajouter les précisions par classe
-            for (int i = 0; i < eval.getClasses().size(); i++) {
-                String label = eval.getClasses().get(i);
+            int numClasses = eval.numClasses();
+            for (int i = 0; i < numClasses; i++) {
+                String label = String.valueOf(i); // Utiliser l'index comme nom de classe
                 
-                // Calculer la précision par classe
-                double truePositives = eval.truePositives().getCount(i);
-                double falseNegatives = eval.falseNegatives().getCount(i);
+                // Calculer la précision par classe avec des méthodes alternatives
+                double truePositives = eval.truePositives().get(i);
+                double falseNegatives = eval.falseNegatives().get(i);
                 double classAccuracy = truePositives / (truePositives + falseNegatives);
                 
                 result.addClassAccuracy(label, classAccuracy);
