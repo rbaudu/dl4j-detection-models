@@ -10,10 +10,16 @@ import org.nd4j.linalg.api.rng.distribution.impl.NormalDistribution;
 import org.nd4j.linalg.indexing.NDArrayIndex;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * Classe utilitaire pour le traitement des données.
+ * Fournit des méthodes pour diviser, normaliser, combiner et augmenter les données.
+ */
 public class DataProcessor {
 
     /**
@@ -107,16 +113,58 @@ public class DataProcessor {
         INDArray labels = dataset.getLabels().dup();
         
         // Créer du bruit gaussien avec la même forme que les caractéristiques
-        int[] shape = features.shape();
+        long[] shape = features.shape(); // Utiliser long[] au lieu de int[]
         
-        // Correction de l'utilisation de Nd4j.rand()
+        // Correction pour l'utilisation correcte de Nd4j.rand()
         Distribution dist = new NormalDistribution(0, noiseLevel);
-        INDArray noise = Nd4j.rand(DataType.FLOAT, shape, dist);
+        INDArray noise = Nd4j.rand(shape, dist);
         
         // Ajouter le bruit aux caractéristiques
         features.addi(noise);
         
         // Créer un nouvel ensemble de données avec les caractéristiques bruitées
         return new DataSet(features, labels);
+    }
+    
+    /**
+     * Vérifie si un répertoire existe et le crée si nécessaire
+     * @param directory Chemin du répertoire à vérifier/créer
+     * @throws IOException Si une erreur survient lors de la création
+     */
+    public static void ensureDirectoryExists(String directory) throws IOException {
+        File dir = new File(directory);
+        if (!dir.exists()) {
+            if (!dir.mkdirs()) {
+                throw new IOException("Impossible de créer le répertoire: " + directory);
+            }
+        }
+    }
+    
+    /**
+     * Charge tous les fichiers de données dans un répertoire
+     * @param directory Répertoire contenant les fichiers
+     * @return Liste des fichiers trouvés
+     */
+    public static List<File> loadDataFiles(String directory) {
+        File dir = new File(directory);
+        if (!dir.exists() || !dir.isDirectory()) {
+            return new ArrayList<>();
+        }
+        
+        File[] files = dir.listFiles();
+        if (files == null) {
+            return new ArrayList<>();
+        }
+        
+        return Arrays.asList(files);
+    }
+    
+    /**
+     * Crée les répertoires pour un chemin donné
+     * @param path Chemin du répertoire à créer
+     * @throws IOException Si une erreur survient lors de la création
+     */
+    public static void createDirectories(String path) throws IOException {
+        ensureDirectoryExists(path);
     }
 }
