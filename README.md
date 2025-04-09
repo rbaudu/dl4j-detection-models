@@ -324,6 +324,8 @@ java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar ex
    data/raw/sound/CONVERSING/audio1.wav
    ...
    ```
+*Note :* des fichiers de son ont été extraits et classés depuis le dataset ESC-50 https://github.com/karolpiczak/ESC-50?tab=readme-ov-file.
+
 
 2. Si vous n'avez pas de structure de répertoires, l'exemple `SpectrogramSoundExample` peut en créer une pour vous:
    ```java

@@ -39,9 +39,10 @@ if [ $? -eq 0 ]; then
     echo "java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar <commande>"
     echo
     echo "Commandes disponibles:"
-    echo "  train-presence    : Entraîne le modèle de détection de présence"
-    echo "  train-activity    : Entraîne le modèle de détection d'activité"
-    echo "  train-sound       : Entraîne le modèle de détection de sons"
+    echo "  train-presence-yolo      : Entraîne le modèle de détection de présence"
+    echo "  train-activity-vgg16     : Entraîne le modèle de détection d'activité basé sur VGG16"
+    echo "  train-activity-resnet    : Entraîne le modèle de détection d'activité basé sur ResNet"
+    echo "  train-sound-spectrogram  : Entraîne le modèle de détection de sons"
     echo "  train-all         : Entraîne tous les modèles"
     echo "  export-presence   : Exporte le modèle de détection de présence"
     echo "  export-activity   : Exporte le modèle de détection d'activité"
