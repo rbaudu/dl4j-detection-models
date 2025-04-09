@@ -1,14 +1,16 @@
 package com.project.test;
 
+import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Properties;
 
 /**
  * Testeur pour le modèle de détection de sons
  */
-public class SoundModelTester extends ModelTester {
+public class SoundModelTester extends BaseModelTester implements ModelTester {
     private static final Logger log = LoggerFactory.getLogger(SoundModelTester.class);
     
     public SoundModelTester(Properties config) {
@@ -38,5 +40,11 @@ public class SoundModelTester extends ModelTester {
         }
         
         return features;
+    }
+    
+    @Override
+    protected DataSetIterator createTestDataIterator() throws IOException {
+        // Utiliser la méthode de génération de données synthétiques de BaseModelTester
+        return new org.nd4j.linalg.dataset.api.iterator.TestDataSetIterator(generateTestData(), batchSize);
     }
 }
