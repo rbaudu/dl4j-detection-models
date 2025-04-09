@@ -1,14 +1,16 @@
 package com.project.test;
 
+import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Properties;
 
 /**
  * Testeur pour le modèle de détection d'activité
  */
-public class ActivityModelTester extends ModelTester {
+public class ActivityModelTester extends BaseModelTester implements ModelTester {
     private static final Logger log = LoggerFactory.getLogger(ActivityModelTester.class);
     
     public ActivityModelTester(Properties config) {
@@ -35,5 +37,11 @@ public class ActivityModelTester extends ModelTester {
         }
         
         return features;
+    }
+    
+    @Override
+    protected DataSetIterator createTestDataIterator() throws IOException {
+        // Utiliser la méthode de génération de données synthétiques de BaseModelTester
+        return new org.nd4j.linalg.dataset.api.iterator.TestDataSetIterator(generateTestData(), batchSize);
     }
 }
