@@ -1,148 +1,319 @@
 package com.project.common.utils;
 
-import javax.sound.sampled.*;
-import java.io.File;
-import java.io.IOException;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.imageio.ImageIO;
+import javax.sound.sampled.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.ShortBuffer;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Classe utilitaire pour le traitement des fichiers audio
+ * Gère l'extraction de caractéristiques MFCC et la génération de spectrogrammes
+ */
 public class AudioUtils {
+    private static final Logger log = LoggerFactory.getLogger(AudioUtils.class);
+    
+    // Paramètres par défaut pour le traitement audio
+    private static final float DEFAULT_SAMPLE_RATE = 44100f;
+    private static final int DEFAULT_FFT_SIZE = 2048;
+    private static final int DEFAULT_HOP_SIZE = 512;
+    private static final int DEFAULT_MEL_BANDS = 128;
     
     /**
-     * Charge un fichier audio et le convertit en format approprié
-     * @param filePath Chemin du fichier audio
-     * @return AudioInputStream traité
+     * Charge un fichier WAV et retourne le flux audio
+     * 
+     * @param file Fichier WAV à charger
+     * @return Flux audio
+     * @throws IOException Si une erreur survient lors de la lecture du fichier
+     * @throws UnsupportedAudioFileException Si le format du fichier n'est pas supporté
      */
-    public static AudioInputStream loadAudioFile(String filePath) throws IOException, UnsupportedAudioFileException {
-        File audioFile = new File(filePath);
-        AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(audioFile);
+    public static AudioInputStream loadWavFile(File file) throws IOException, UnsupportedAudioFileException {
+        AudioInputStream audioStream = AudioSystem.getAudioInputStream(file);
         
-        // Conversion vers un format standard si nécessaire
-        AudioFormat format = audioInputStream.getFormat();
-        if (format.getEncoding() != AudioFormat.Encoding.PCM_SIGNED) {
+        // Convertir en format PCM signé 16 bits si nécessaire
+        AudioFormat format = audioStream.getFormat();
+        if (format.getEncoding() != AudioFormat.Encoding.PCM_SIGNED || format.getSampleSizeInBits() != 16) {
             AudioFormat targetFormat = new AudioFormat(
-                    AudioFormat.Encoding.PCM_SIGNED,
-                    format.getSampleRate(),
-                    16,
-                    format.getChannels(),
-                    format.getChannels() * 2,
-                    format.getSampleRate(),
-                    false);
-            
-            // Utilisation de la méthode correcte pour convertir le format audio
-            audioInputStream = AudioSystem.getAudioInputStream(targetFormat, audioInputStream);
+                AudioFormat.Encoding.PCM_SIGNED,
+                format.getSampleRate(),
+                16,
+                format.getChannels(),
+                format.getChannels() * 2,
+                format.getSampleRate(),
+                false);
+            audioStream = AudioSystem.getAudioInputStream(targetFormat, audioStream);
         }
         
-        return audioInputStream;
+        return audioStream;
     }
     
     /**
-     * Convertit un audio en tableau de double[]
-     * @param audioInputStream Le flux audio à convertir
-     * @return Les données audio sous forme de tableau de doubles
+     * Convertit un flux audio stéréo en mono si nécessaire
+     * 
+     * @param audioStream Flux audio à convertir
+     * @return Flux audio mono
+     * @throws IOException Si une erreur survient lors de la conversion
      */
-    public static double[] audioInputStreamToDoubleArray(AudioInputStream audioInputStream) throws IOException {
-        AudioFormat format = audioInputStream.getFormat();
-        long frameLength = audioInputStream.getFrameLength();
-        int frameSize = format.getFrameSize();
+    public static AudioInputStream convertToMono(AudioInputStream audioStream) throws IOException {
+        AudioFormat format = audioStream.getFormat();
+        
+        // Si déjà mono, retourner le flux tel quel
+        if (format.getChannels() == 1) {
+            return audioStream;
+        }
+        
+        // Lire les données audio
+        byte[] data = readAllBytes(audioStream);
+        
+        // Créer une nouvelle format audio mono
+        AudioFormat monoFormat = new AudioFormat(
+            format.getSampleRate(),
+            format.getSampleSizeInBits(),
+            1,
+            format.getSampleSizeInBits() == 8 ? false : true,
+            false);
+        
+        // Convertir les données en mono
+        byte[] monoData = stereoToMono(data, format);
+        
+        // Créer un nouveau flux audio mono
+        ByteArrayInputStream bais = new ByteArrayInputStream(monoData);
+        return new AudioInputStream(bais, monoFormat, monoData.length / monoFormat.getFrameSize());
+    }
+    
+    /**
+     * Convertit des données audio stéréo en mono
+     * 
+     * @param stereoData Données stéréo
+     * @param format Format audio des données
+     * @return Données audio mono
+     */
+    private static byte[] stereoToMono(byte[] stereoData, AudioFormat format) {
         int channels = format.getChannels();
+        int bytesPerSample = format.getSampleSizeInBits() / 8;
+        int bytesPerFrame = bytesPerSample * channels;
+        int monoLength = stereoData.length / channels;
+        byte[] monoData = new byte[monoLength];
         
-        byte[] audioBytes = new byte[(int) (frameLength * frameSize)];
-        int bytesRead = audioInputStream.read(audioBytes);
-        
-        double[] audioData = new double[bytesRead / (frameSize / channels)];
-        
-        int sampleIndex = 0;
-        for (int i = 0; i < bytesRead; i += frameSize / channels) {
-            double sampleValue = 0;
+        // Pour l'audio 16 bits
+        if (bytesPerSample == 2) {
+            ShortBuffer stereoBuffer = ByteBuffer.wrap(stereoData)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .asShortBuffer();
+            ShortBuffer monoBuffer = ByteBuffer.wrap(monoData)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .asShortBuffer();
             
-            if (format.getSampleSizeInBits() == 16) {
-                sampleValue = ((audioBytes[i] & 0xFF) | (audioBytes[i + 1] << 8)) / 32768.0;
-            } else if (format.getSampleSizeInBits() == 8) {
-                sampleValue = (audioBytes[i] & 0xFF) / 128.0 - 1.0;
+            int numFrames = stereoData.length / bytesPerFrame;
+            for (int i = 0; i < numFrames; i++) {
+                int sum = 0;
+                for (int j = 0; j < channels; j++) {
+                    sum += stereoBuffer.get(i * channels + j);
+                }
+                monoBuffer.put(i, (short) (sum / channels));
             }
-            
-            audioData[sampleIndex++] = sampleValue;
-        }
-        
-        return audioData;
-    }
-    
-    /**
-     * Convertit les données audio en INDArray pour traitement DL4J
-     * @param audioData Données audio
-     * @return INDArray adapté pour DL4J
-     */
-    public static INDArray audioToFeatures(double[] audioData, int windowSize, int hopSize) {
-        int numWindows = (audioData.length - windowSize) / hopSize + 1;
-        
-        // Créer un tableau pour stocker les caractéristiques
-        INDArray features = Nd4j.zeros(numWindows, windowSize);
-        
-        for (int i = 0; i < numWindows; i++) {
-            int startIndex = i * hopSize;
-            
-            // Copier la fenêtre actuelle dans l'INDArray
-            double[] window = new double[windowSize];
-            System.arraycopy(audioData, startIndex, window, 0, windowSize);
-            
-            // Appliquer une fenêtre de Hamming
-            applyHammingWindow(window);
-            
-            // Stocker les caractéristiques
-            for (int j = 0; j < windowSize; j++) {
-                features.putScalar(i, j, window[j]);
+        } 
+        // Pour l'audio 8 bits
+        else if (bytesPerSample == 1) {
+            int numFrames = stereoData.length / bytesPerFrame;
+            for (int i = 0; i < numFrames; i++) {
+                int sum = 0;
+                for (int j = 0; j < channels; j++) {
+                    sum += stereoData[i * bytesPerFrame + j];
+                }
+                monoData[i] = (byte) (sum / channels);
             }
         }
         
-        return features;
+        return monoData;
     }
     
     /**
-     * Applique une fenêtre de Hamming aux données audio
-     * @param window Les données audio à traiter
+     * Lit tous les octets d'un flux audio
+     * 
+     * @param audioStream Flux audio à lire
+     * @return Tableau d'octets contenant les données audio
+     * @throws IOException Si une erreur survient lors de la lecture
      */
-    private static void applyHammingWindow(double[] window) {
-        for (int i = 0; i < window.length; i++) {
-            double multiplier = 0.54 - 0.46 * Math.cos((2 * Math.PI * i) / (window.length - 1));
-            window[i] = window[i] * multiplier;
+    private static byte[] readAllBytes(AudioInputStream audioStream) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        int nRead;
+        byte[] data = new byte[16384];
+        while ((nRead = audioStream.read(data, 0, data.length)) != -1) {
+            buffer.write(data, 0, nRead);
+        }
+        buffer.flush();
+        return buffer.toByteArray();
+    }
+    
+    /**
+     * Extrait les coefficients MFCC d'un fichier audio
+     * 
+     * @param file Fichier audio
+     * @param numMfcc Nombre de coefficients MFCC à extraire
+     * @param inputLength Longueur maximale de la séquence d'entrée
+     * @return Matrice de coefficients MFCC [1, inputLength * numMfcc]
+     */
+    public static INDArray extractMFCC(File file, int numMfcc, int inputLength) {
+        try {
+            // Charger le fichier WAV
+            AudioInputStream audioStream = loadWavFile(file);
+            
+            // Convertir en mono si nécessaire
+            audioStream = convertToMono(audioStream);
+            
+            // Obtenir les données audio
+            byte[] audioData = readAllBytes(audioStream);
+            AudioFormat format = audioStream.getFormat();
+            
+            // Convertir en valeurs à virgule flottante
+            float[] samples = bytesToFloats(audioData, format);
+            
+            // Extraction des MFCC (simulée)
+            // Note: Dans une implémentation réelle, utilisez une bibliothèque comme librosa ou JLibrosa
+            float[][] mfccFeatures = simulateMFCCExtraction(samples, numMfcc, inputLength);
+            
+            // Convertir en INDArray
+            INDArray features = Nd4j.create(flattenMFCC(mfccFeatures, numMfcc, inputLength));
+            return features.reshape(1, inputLength * numMfcc);
+            
+        } catch (Exception e) {
+            log.error("Erreur lors de l'extraction des MFCC pour " + file.getName(), e);
+            // En cas d'erreur, retourner un vecteur de zéros
+            return Nd4j.zeros(1, inputLength * numMfcc);
         }
     }
     
     /**
-     * Extrait les caractéristiques MFCC d'un fichier audio
-     * Cette méthode remplace l'utilisation de WaveFileLoader qui n'est pas disponible
+     * Simule l'extraction des MFCC
+     * Dans une implémentation réelle, utilisez une bibliothèque comme librosa ou JLibrosa
+     * 
+     * @param samples Échantillons audio
+     * @param numMfcc Nombre de coefficients MFCC
+     * @param inputLength Longueur de la séquence
+     * @return Matrice des coefficients MFCC
      */
-    public static INDArray extractMFCCFeatures(String filePath, int numCoefficients) throws IOException, UnsupportedAudioFileException {
-        // Charger le fichier audio
-        AudioInputStream audioInputStream = loadAudioFile(filePath);
+    private static float[][] simulateMFCCExtraction(float[] samples, int numMfcc, int inputLength) {
+        // Simulation simple de l'extraction de MFCC
+        // En réalité, vous utiliseriez une bibliothèque comme librosa ou JLibrosa
         
-        // Convertir en tableau de doubles
-        double[] audioData = audioInputStreamToDoubleArray(audioInputStream);
+        float[][] mfcc = new float[inputLength][numMfcc];
         
-        // Paramètres pour l'extraction MFCC
-        int windowSize = 512;
-        int hopSize = 256;
-        
-        // Créer une représentation fenêtrée du signal
-        INDArray frames = audioToFeatures(audioData, windowSize, hopSize);
-        
-        // Simuler l'extraction de MFCC
-        // Note: Dans un cas réel, vous devriez utiliser une bibliothèque dédiée pour l'extraction MFCC
-        // comme TarsosDSP ou implémenter l'algorithme complet
-        int numFrames = frames.rows();
-        INDArray mfccs = Nd4j.zeros(numFrames, numCoefficients);
-        
-        // Pour cet exemple, nous remplissons simplement avec des valeurs simulées
-        for (int i = 0; i < numFrames; i++) {
-            INDArray frame = frames.getRow(i);
+        // Diviser l'audio en segments et extraire les MFCC pour chaque segment
+        int samplesPerSegment = samples.length / inputLength;
+        for (int i = 0; i < Math.min(inputLength, samples.length / samplesPerSegment); i++) {
+            int startIdx = i * samplesPerSegment;
             
-            // Simuler l'extraction MFCC - à remplacer par une véritable implémentation
-            for (int j = 0; j < numCoefficients; j++) {
-                mfccs.putScalar(i, j, frame.sumNumber().doubleValue() / (j + 1));
+            // Calculer l'énergie du segment
+            double energy = 0;
+            for (int j = 0; j < samplesPerSegment && startIdx + j < samples.length; j++) {
+                energy += samples[startIdx + j] * samples[startIdx + j];
+            }
+            energy = Math.sqrt(energy / samplesPerSegment);
+            
+            // Remplir les coefficients MFCC avec des valeurs dérivées de l'énergie
+            // C'est une simulation très simple - dans la réalité, ces valeurs seraient calculées
+            // à partir de la transformée de Fourier et d'autres transformations
+            for (int j = 0; j < numMfcc; j++) {
+                mfcc[i][j] = (float) (energy * Math.sin(j * Math.PI / numMfcc));
             }
         }
         
-        return mfccs;
+        return mfcc;
+    }
+    
+    /**
+     * Aplatit une matrice MFCC en un vecteur
+     * 
+     * @param mfcc Matrice MFCC [inputLength][numMfcc]
+     * @param numMfcc Nombre de coefficients MFCC
+     * @param inputLength Longueur de la séquence
+     * @return Vecteur MFCC aplati
+     */
+    private static float[] flattenMFCC(float[][] mfcc, int numMfcc, int inputLength) {
+        float[] flatMfcc = new float[inputLength * numMfcc];
+        for (int i = 0; i < inputLength; i++) {
+            for (int j = 0; j < numMfcc; j++) {
+                flatMfcc[i * numMfcc + j] = i < mfcc.length ? mfcc[i][j] : 0;
+            }
+        }
+        return flatMfcc;
+    }
+    
+    /**
+     * Convertit des octets audio en valeurs à virgule flottante
+     * 
+     * @param audioData Données audio en octets
+     * @param format Format audio
+     * @return Tableau de valeurs à virgule flottante
+     */
+    private static float[] bytesToFloats(byte[] audioData, AudioFormat format) {
+        int bytesPerSample = format.getSampleSizeInBits() / 8;
+        int numSamples = audioData.length / bytesPerSample;
+        float[] samples = new float[numSamples];
+        
+        // Audio 16 bits
+        if (format.getSampleSizeInBits() == 16) {
+            ShortBuffer shortBuffer = ByteBuffer.wrap(audioData)
+                .order(format.isBigEndian() ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN)
+                .asShortBuffer();
+            
+            for (int i = 0; i < numSamples; i++) {
+                samples[i] = shortBuffer.get(i) / 32768.0f;  // Normaliser entre -1 et 1
+            }
+        } 
+        // Audio 8 bits non signé
+        else if (format.getSampleSizeInBits() == 8) {
+            for (int i = 0; i < numSamples; i++) {
+                samples[i] = ((audioData[i] & 0xff) - 128) / 128.0f;  // Normaliser entre -1 et 1
+            }
+        }
+        
+        return samples;
+    }
+    
+    /**
+     * Crée une carte des classes à partir d'un répertoire contenant des sous-dossiers par activité
+     * 
+     * @param rootDir Répertoire racine contenant les sous-dossiers d'activités
+     * @return Map associant des indices aux noms de classes
+     */
+    public static Map<Integer, String> createLabelMap(File rootDir) {
+        Map<Integer, String> labelMap = new HashMap<>();
+        
+        if (!rootDir.exists() || !rootDir.isDirectory()) {
+            log.error("Le répertoire racine '{}' n'existe pas ou n'est pas un répertoire", rootDir.getAbsolutePath());
+            return labelMap;
+        }
+        
+        File[] activityDirs = rootDir.listFiles(File::isDirectory);
+        if (activityDirs == null) {
+            log.error("Impossible de lister les sous-répertoires dans '{}'", rootDir.getAbsolutePath());
+            return labelMap;
+        }
+        
+        // Trier les répertoires par nom pour une cohérence des indices
+        Arrays.sort(activityDirs);
+        
+        // Créer la carte des labels
+        for (int i = 0; i < activityDirs.length; i++) {
+            labelMap.put(i, activityDirs[i].getName());
+            log.info("Classe {}: {}", i, activityDirs[i].getName());
+        }
+        
+        return labelMap;
     }
 }
