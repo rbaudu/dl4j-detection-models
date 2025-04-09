@@ -62,6 +62,8 @@ public class Application {
                 
                 if ("YOLO".equalsIgnoreCase(presenceModelType)) {
                     log.info("Démarrage de l'entraînement du modèle YOLO de détection de présence");
+                    // Définir le chemin du modèle en fonction du type
+                    config.setProperty("presence.model.path", config.getProperty("presence.yolo.model.path"));
                     LoggingUtils.logPresenceTrainingParameters(config);
                     new YOLOPresenceTrainer(config).train();
                 } else {
@@ -73,6 +75,8 @@ public class Application {
                 
             case "train-presence-yolo":
                 log.info("Démarrage de l'entraînement du modèle YOLO de détection de présence");
+                // Définir le chemin du modèle en fonction du type
+                config.setProperty("presence.model.path", config.getProperty("presence.yolo.model.path"));
                 LoggingUtils.logPresenceTrainingParameters(config);
                 new YOLOPresenceTrainer(config).train();
                 break;
@@ -85,12 +89,16 @@ public class Application {
                     log.info("Démarrage de l'entraînement du modèle VGG16 de détection d'activité");
                     // Forcer l'utilisation de VGG16
                     config.setProperty("activity.model.type", "VGG16");
+                    // Définir le chemin du modèle en fonction du type
+                    config.setProperty("activity.model.path", config.getProperty("activity.vgg16.model.path"));
                     LoggingUtils.logActivityTrainingParameters(config);
                     new ActivityTrainer(config).train();
                 } else if ("RESNET".equalsIgnoreCase(activityModelType)) {
                     log.info("Démarrage de l'entraînement du modèle ResNet de détection d'activité");
                     // Forcer l'utilisation de ResNet
                     config.setProperty("activity.model.type", "RESNET");
+                    // Définir le chemin du modèle en fonction du type
+                    config.setProperty("activity.model.path", config.getProperty("activity.resnet.model.path"));
                     LoggingUtils.logActivityTrainingParameters(config);
                     new ActivityTrainer(config).train();
                 } else {
@@ -104,6 +112,8 @@ public class Application {
                 log.info("Démarrage de l'entraînement du modèle VGG16 de détection d'activité");
                 // Forcer l'utilisation de VGG16
                 config.setProperty("activity.model.type", "VGG16");
+                // Définir le chemin du modèle en fonction du type
+                config.setProperty("activity.model.path", config.getProperty("activity.vgg16.model.path"));
                 LoggingUtils.logActivityTrainingParameters(config);
                 new ActivityTrainer(config).train();
                 break;
@@ -112,6 +122,8 @@ public class Application {
                 log.info("Démarrage de l'entraînement du modèle ResNet de détection d'activité");
                 // Forcer l'utilisation de ResNet
                 config.setProperty("activity.model.type", "RESNET");
+                // Définir le chemin du modèle en fonction du type
+                config.setProperty("activity.model.path", config.getProperty("activity.resnet.model.path"));
                 LoggingUtils.logActivityTrainingParameters(config);
                 new ActivityTrainer(config).train();
                 break;
@@ -124,6 +136,8 @@ public class Application {
                     log.info("Démarrage de l'entraînement du modèle spectrogram de détection de sons");
                     // Forcer l'utilisation de Spectrogram
                     config.setProperty("sound.model.type", "SPECTROGRAM");
+                    // Définir le chemin du modèle en fonction du type
+                    config.setProperty("sound.model.path", config.getProperty("sound.spectrogram.model.path"));
                     LoggingUtils.logSoundTrainingParameters(config);
                     new SoundTrainer(config).train();
                 } else {
@@ -137,6 +151,8 @@ public class Application {
                 log.info("Démarrage de l'entraînement du modèle spectrogram de détection de sons");
                 // Forcer l'utilisation de Spectrogram
                 config.setProperty("sound.model.type", "SPECTROGRAM");
+                // Définir le chemin du modèle en fonction du type
+                config.setProperty("sound.model.path", config.getProperty("sound.spectrogram.model.path"));
                 LoggingUtils.logSoundTrainingParameters(config);
                 new SoundTrainer(config).train();
                 break;
@@ -147,6 +163,13 @@ public class Application {
                 // Entraînement du modèle de présence (YOLO ou standard)
                 String presenceType = config.getProperty("presence.model.type", "STANDARD");
                 log.info("Entraînement du modèle de présence (type: {})", presenceType);
+                if ("YOLO".equalsIgnoreCase(presenceType)) {
+                    // Définir le chemin du modèle en fonction du type
+                    config.setProperty("presence.model.path", config.getProperty("presence.yolo.model.path"));
+                } else {
+                    // Utiliser le chemin par défaut pour le modèle standard
+                    config.setProperty("presence.model.path", config.getProperty("presence.model.dir") + "/model.zip");
+                }
                 LoggingUtils.logPresenceTrainingParameters(config);
                 if ("YOLO".equalsIgnoreCase(presenceType)) {
                     new YOLOPresenceTrainer(config).train();
@@ -157,15 +180,30 @@ public class Application {
                 // Entraînement du modèle d'activité
                 String activityType = config.getProperty("activity.model.type", "STANDARD");
                 log.info("Entraînement du modèle d'activité (type: {})", activityType);
+                if ("VGG16".equalsIgnoreCase(activityType)) {
+                    // Définir le chemin du modèle en fonction du type
+                    config.setProperty("activity.model.path", config.getProperty("activity.vgg16.model.path"));
+                } else if ("RESNET".equalsIgnoreCase(activityType)) {
+                    // Définir le chemin du modèle en fonction du type
+                    config.setProperty("activity.model.path", config.getProperty("activity.resnet.model.path"));
+                } else {
+                    // Utiliser le chemin par défaut pour le modèle standard
+                    config.setProperty("activity.model.path", config.getProperty("activity.model.dir") + "/model.zip");
+                }
                 LoggingUtils.logActivityTrainingParameters(config);
-                // La classe ActivityTrainer devrait maintenant gérer tous les types de modèles
                 new ActivityTrainer(config).train();
                 
                 // Entraînement du modèle de son
                 String soundType = config.getProperty("sound.model.type", "STANDARD");
                 log.info("Entraînement du modèle de son (type: {})", soundType);
+                if ("SPECTROGRAM".equalsIgnoreCase(soundType)) {
+                    // Définir le chemin du modèle en fonction du type
+                    config.setProperty("sound.model.path", config.getProperty("sound.spectrogram.model.path"));
+                } else {
+                    // Utiliser le chemin par défaut pour le modèle standard
+                    config.setProperty("sound.model.path", config.getProperty("sound.model.dir") + "/model.zip");
+                }
                 LoggingUtils.logSoundTrainingParameters(config);
-                // La classe SoundTrainer devrait maintenant gérer tous les types de modèles
                 new SoundTrainer(config).train();
                 break;
                 
