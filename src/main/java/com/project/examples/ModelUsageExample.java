@@ -1,7 +1,7 @@
 package com.project.examples;
 
 import com.project.common.utils.ModelUtils;
-import com.project.config.ConfigurationManager;
+import com.project.config.AppConfig;
 import com.project.models.ModelManager;
 import com.project.models.activity.ResNetActivityModel;
 import com.project.models.activity.VGG16ActivityModel;
@@ -12,7 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Properties;
 
 /**
@@ -25,11 +27,13 @@ public class ModelUsageExample {
     public static void main(String[] args) {
         try {
             // Charger la configuration
-            ConfigurationManager configManager = new ConfigurationManager();
-            Properties config = configManager.loadConfiguration("config/application.properties");
+            Properties config = loadConfiguration("config/application.properties");
             
             // Créer le gestionnaire de modèles
             ModelManager modelManager = new ModelManager(config);
+            
+            // Initialiser tous les modèles
+            modelManager.initializeModels();
             
             // Exemple 1: Utiliser le modèle YOLO pour la détection de présence
             demonstrateYoloPresenceDetection(modelManager);
@@ -46,6 +50,28 @@ public class ModelUsageExample {
         } catch (Exception e) {
             log.error("Erreur lors de l'exécution des exemples", e);
         }
+    }
+    
+    /**
+     * Charge le fichier de configuration.
+     * 
+     * @param configPath Chemin vers le fichier de configuration
+     * @return Propriétés de configuration
+     * @throws IOException Si une erreur survient lors du chargement de la configuration
+     */
+    private static Properties loadConfiguration(String configPath) throws IOException {
+        Properties config = new Properties();
+        File configFile = new File(configPath);
+        
+        if (!configFile.exists()) {
+            throw new IOException("Fichier de configuration non trouvé: " + configPath);
+        }
+        
+        try (InputStream input = new FileInputStream(configFile)) {
+            config.load(input);
+        }
+        
+        return config;
     }
     
     /**
