@@ -3,7 +3,12 @@
 Ce projet fournit une infrastructure Java complète pour l'entraînement et l'exportation de modèles de détection utilisant Deeplearning4j (DL4J). Le projet inclut trois types de modèles de détection :
 
 1. **Détection de présence** : Détecte la présence d'objets ou de personnes
+   - **YOLO** : Utilise YOLO pour la détection d'objets plus précise
+   - **Standard** : Modèle simple pour la détection binaire de présence
 2. **Détection d'activité** : Classifie différents types d'activités (27 classes différentes)
+   - **VGG16** : Utilise VGG16 pour la classification d'images avec transfert d'apprentissage
+   - **ResNet** : Utilise ResNet50 pour la classification d'images avec transfert d'apprentissage
+   - **Standard (MobileNetV2)** : Utilise MobileNetV2 pour la classification plus légère
 3. **Détection de sons** : Identifie et classifie différents types de sons
 
 Les modèles sont exportés au format ZIP compatible avec DL4J, ce qui permet de les intégrer facilement dans d'autres applications Java.
@@ -12,7 +17,8 @@ Les modèles sont exportés au format ZIP compatible avec DL4J, ce qui permet de
 
 Cette implémentation utilise le **transfert d'apprentissage** avec des modèles pré-entraînés pour améliorer les performances :
 
-- **MobileNetV2** pour la détection d'activité (classification d'images)
+- **YOLO** pour la détection de présence (détection d'objets)
+- **VGG16/ResNet50** pour la détection d'activité (classification d'images)
 - **YAMNet** pour la détection de sons (classification audio)
 
 Cette approche permet d'obtenir de bonnes performances même avec un nombre limité de données d'entraînement.
@@ -39,13 +45,21 @@ project-root/
 │   │   │       │       └── TransferLearningHelper.java  # Transfert d'apprentissage
 │   │   │       │
 │   │   │       ├── models/          # Définition des modèles
-│   │   │       │   ├── activity/    # Modèle d'activité (MobileNetV2)
+│   │   │       │   ├── ModelManager.java  # Gestionnaire central des modèles
+│   │   │       │   ├── activity/    # Modèles d'activité
+│   │   │       │   │   ├── ActivityModel.java  # Modèle standard (MobileNetV2)
+│   │   │       │   │   ├── VGG16ActivityModel.java  # Modèle VGG16
+│   │   │       │   │   └── ResNetActivityModel.java  # Modèle ResNet
 │   │   │       │   ├── presence/    # Modèle de présence
+│   │   │       │   │   ├── PresenceModel.java  # Modèle standard
+│   │   │       │   │   └── YOLOPresenceModel.java  # Modèle YOLO
 │   │   │       │   └── sound/       # Modèle de son (YAMNet)
 │   │   │       │
 │   │   │       ├── training/        # Entraînement des modèles
 │   │   │       ├── export/          # Exportation des modèles
 │   │   │       ├── test/            # Tests des modèles
+│   │   │       ├── examples/        # Exemples d'utilisation
+│   │   │       │   └── ModelUsageExample.java  # Démonstration des modèles
 │   │   │       └── Application.java # Point d'entrée
 │   │   │
 │   │   └── resources/               # Ressources
@@ -71,8 +85,13 @@ project-root/
 │
 ├── models/                          # Modèles entraînés
 │   ├── presence/
+│   │   ├── presence_model.zip       # Modèle standard
+│   │   ├── yolo_model.zip           # Modèle YOLO
 │   │   └── checkpoints/
 │   ├── activity/
+│   │   ├── activity_model.zip       # Modèle standard (MobileNetV2)
+│   │   ├── vgg16_model.zip          # Modèle VGG16
+│   │   ├── resnet_model.zip         # Modèle ResNet
 │   │   └── checkpoints/
 │   └── sound/
 │       └── checkpoints/
@@ -132,11 +151,32 @@ Le modèle de détection de sons prend en charge les classes suivantes par défa
 
 Ces classes peuvent être personnalisées dans le fichier de configuration.
 
+## Nouveaux modèles implémentés
+
+### Modèle YOLO pour la détection de présence
+
+Le modèle YOLO (You Only Look Once) est un réseau de neurones convolutifs conçu pour la détection d'objets en temps réel. Dans ce projet, nous avons intégré deux versions:
+
+- **TinyYOLO** : Version légère et rapide, idéale pour les systèmes embarqués
+- **YOLO2** : Version plus complète et précise
+
+Ces modèles permettent de détecter la présence de personnes dans les images avec une grande précision spatiale.
+
+### Modèles VGG16 et ResNet pour la détection d'activité
+
+Pour la classification d'activités, nous avons implémenté deux architectures de réseaux profonds pré-entraînés:
+
+- **VGG16** : Architecture profonde à 16 couches, excellente pour la classification d'images
+- **ResNet50** : Architecture résiduelle à 50 couches offrant un bon équilibre entre profondeur et performance
+
+Ces modèles utilisent le transfert d'apprentissage à partir de poids pré-entraînés sur ImageNet, puis sont fine-tunés sur notre jeu de données d'activités.
+
 ## Prérequis
 
 - Java JDK 11 ou supérieur
 - Maven 3.6.3 ou supérieur
 - Au moins 4 Go de RAM disponible pour l'entraînement des modèles
+- Au moins 8 Go de RAM recommandé pour les modèles VGG16 et ResNet
 
 ## Installation et compilation
 
@@ -157,37 +197,45 @@ Ce script compilera le projet et créera les répertoires nécessaires.
 
 Tous les paramètres de configuration sont centralisés dans le fichier `config/application.properties`. Vous pouvez modifier ce fichier pour ajuster les paramètres des modèles, les chemins de données, etc.
 
-### Paramètres importants pour le transfert d'apprentissage
+### Paramètres importants pour les nouveaux modèles
 
 ```properties
-# Configuration pour MobileNetV2 (activité)
-activity.model.learning.rate=0.0005
-activity.training.examples.per.class=20
+# Type de modèle à utiliser pour chaque tâche
+presence.model.type=YOLO
+activity.model.type=VGG16
 
-# Configuration pour YAMNet (sons)
-sound.model.learning.rate=0.0001
-sound.model.num.classes=5
+# Configuration du modèle YOLO
+presence.model.use.tiny.yolo=true
+presence.model.input.height=416
+presence.model.input.width=416
 
-# Configuration pour les tests
-test.min.accuracy=0.7
-test.num.samples=100
+# Configuration de VGG16
+activity.model.learning.rate=0.0001
+activity.model.dropout=0.5
 ```
-
-## Préparation des données
-
-### Modèle d'activité
-Placez vos images d'activités dans des sous-répertoires correspondant aux noms des classes dans `data/raw/activity/`. Par exemple :
-```
-data/raw/activity/COOKING/image1.jpg
-data/raw/activity/COOKING/image2.jpg
-data/raw/activity/READING/image1.jpg
-...
-```
-
-### Modèle de sons
-Placez vos fichiers audio dans `data/raw/sound/`. Le système essaiera de déterminer la classe à partir du nom du fichier ou du répertoire parent.
 
 ## Utilisation
+
+### Sélection des modèles
+
+Pour choisir le modèle à utiliser, vous pouvez:
+
+1. Modifier la configuration dans `application.properties`:
+   ```
+   presence.model.type=YOLO
+   activity.model.type=VGG16
+   ```
+
+2. Utiliser le ModelManager dans votre code:
+   ```java
+   ModelManager modelManager = new ModelManager(config);
+   
+   // Changer de modèle de présence
+   modelManager.setPresenceModelType(ModelManager.PresenceModelType.YOLO);
+   
+   // Changer de modèle d'activité
+   modelManager.setActivityModelType(ModelManager.ActivityModelType.RESNET);
+   ```
 
 ### Entraînement des modèles
 
@@ -198,37 +246,24 @@ Pour entraîner tous les modèles :
 
 Pour entraîner un modèle spécifique :
 ```
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-presence
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-activity
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-sound
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-presence-yolo
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-activity-vgg16
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-activity-resnet
 ```
 
 ### Test des modèles
-
-Une fonctionnalité importante du projet est la capacité de tester les modèles générés avant de les exporter. Cela permet de s'assurer que les modèles sont correctement formés et pourront être chargés sans problème par l'application externe Java DL4J.
 
 Pour tester tous les modèles :
 ```
 ./scripts/test_models.sh
 ```
-ou
-```
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-all
-```
 
 Pour tester un modèle spécifique :
 ```
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-presence
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-activity
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-sound
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-presence-yolo
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-activity-vgg16
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-activity-resnet
 ```
-
-Les tests effectuent les vérifications suivantes :
-1. **Chargement** : Vérifie que le modèle peut être chargé depuis le disque
-2. **Validation structurelle** : S'assure que le modèle a la structure attendue et peut traiter des entrées
-3. **Test de performance** : Évalue la précision du modèle sur des données de test synthétiques
-
-Ces tests utilisent des données générées synthétiquement qui simulent les caractéristiques attendues pour chaque type de modèle. Le seuil minimal de précision acceptable est configurable via le paramètre `test.min.accuracy` dans le fichier de configuration.
 
 ### Exportation des modèles
 
@@ -239,78 +274,46 @@ Pour exporter tous les modèles au format DL4J :
 
 Pour exporter un modèle spécifique :
 ```
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-presence
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-activity
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-sound
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-presence-yolo
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-activity-vgg16
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-activity-resnet
 ```
 
-Les modèles exportés seront placés dans le répertoire `export/` au format ZIP.
+## Exemple d'utilisation des modèles
 
-## Workflow complet recommandé
-
-Pour obtenir des modèles fiables et bien testés, nous recommandons le workflow suivant :
-
-1. **Entraînement** : Entraîner les modèles avec vos données
-2. **Test** : Vérifier que les modèles fonctionnent correctement
-3. **Export** : Exporter les modèles validés pour utilisation externe
-
-Exemple de script automatisant ce processus :
-```bash
-#!/bin/bash
-
-# Entraîner les modèles
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-all
-
-# Tester les modèles
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-all
-
-# Si les tests réussissent, exporter les modèles
-if [ $? -eq 0 ]; then
-    echo "Tests réussis, exportation des modèles..."
-    java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-all
-    echo "Exportation terminée avec succès!"
-else
-    echo "Tests échoués. Les modèles nécessitent une révision."
-    exit 1
-fi
-```
-
-## Utilisation des modèles exportés
-
-Les modèles exportés peuvent être chargés dans d'autres applications utilisant DL4J avec le code suivant :
+Voici un exemple simplifié d'utilisation des modèles dans votre code:
 
 ```java
-import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-import org.deeplearning4j.util.ModelSerializer;
+// Charger la configuration
+ConfigurationManager configManager = new ConfigurationManager();
+Properties config = configManager.loadConfiguration("config/application.properties");
 
-// Charger le modèle
-MultiLayerNetwork model = ModelSerializer.restoreMultiLayerNetwork(new File("chemin/vers/le/modele.zip"));
+// Créer le gestionnaire de modèles
+ModelManager modelManager = new ModelManager(config);
 
-// Utiliser le modèle pour faire des prédictions
-INDArray input = ... // Préparer les données d'entrée
-INDArray output = model.output(input);
+// Utiliser YOLO pour la détection de présence
+modelManager.setPresenceModelType(ModelManager.PresenceModelType.YOLO);
+YOLOPresenceModel yoloModel = modelManager.getYoloPresenceModel();
+boolean presenceDetected = yoloModel.detectPresence(imageData);
+
+// Utiliser VGG16 pour la détection d'activité
+modelManager.setActivityModelType(ModelManager.ActivityModelType.VGG16);
+VGG16ActivityModel vgg16Model = modelManager.getVgg16ActivityModel();
+int activityClass = vgg16Model.predictActivity(imageData);
+
+// Utiliser ResNet pour la détection d'activité
+modelManager.setActivityModelType(ModelManager.ActivityModelType.RESNET);
+ResNetActivityModel resNetModel = modelManager.getResNetActivityModel();
+int activityClass = resNetModel.predictActivity(imageData);
 ```
 
-## Avantages du transfert d'apprentissage
+Pour un exemple complet, voir la classe `ModelUsageExample.java`.
 
-- **Meilleure performance** : Utilise des caractéristiques déjà apprises sur des millions d'images ou de sons
-- **Moins de données requises** : Fonctionne bien même avec peu d'exemples par classe
-- **Entraînement plus rapide** : Seules les dernières couches sont entraînées, ce qui accélère considérablement le processus
-- **Meilleure généralisation** : Les modèles pré-entraînés ont appris des représentations robustes qui se généralisent bien à de nouvelles données
+## Avantages des nouveaux modèles
 
-## Personnalisation des tests
-
-Si vous souhaitez utiliser de vraies données de test au lieu de données synthétiques, vous pouvez :
-
-1. Ajouter des sous-répertoires `test` dans les dossiers de données (`data/raw/presence/test`, etc.)
-2. Placer vos données de test dans ces répertoires
-3. Modifier la configuration pour pointer vers ces répertoires :
-
-```properties
-presence.test.data.dir=data/raw/presence/test
-activity.test.data.dir=data/raw/activity/test
-sound.test.data.dir=data/raw/sound/test
-```
+- **YOLO** offre une meilleure localisation spatiale et une détection plus précise des personnes
+- **VGG16** possède une excellente capacité de généralisation pour la classification d'images complexes
+- **ResNet** utilise des connexions résiduelles pour entraîner des réseaux très profonds sans dégradation
 
 ## Licence
 
