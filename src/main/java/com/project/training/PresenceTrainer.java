@@ -1,133 +1,165 @@
 package com.project.training;
 
-import com.project.common.utils.DataProcessor;
 import com.project.common.utils.ModelUtils;
-import com.project.models.presence.PresenceModel;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
-import org.nd4j.linalg.factory.Nd4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
-import java.util.Random;
 
 /**
- * Classe pour l'entraînement du modèle de détection de présence.
- * Implémente les méthodes spécifiques pour préparer les données et gérer le modèle de présence.
+ * Entraîneur pour les modèles de détection de présence.
+ * Permet d'entraîner des modèles à détecter la présence ou l'absence de personnes.
  */
 public class PresenceTrainer extends ModelTrainer {
     private static final Logger log = LoggerFactory.getLogger(PresenceTrainer.class);
     
-    private final PresenceModel model;
-    private final String dataDir;
-    private final String modelDir;
-    private final String modelName;
+    private int inputSize;
+    private int numClasses;
     
     /**
-     * Constructeur avec configuration.
-     *
+     * Constructeur avec paramètres individuels
+     * 
+     * @param batchSize Taille du lot pour l'entraînement
+     * @param numEpochs Nombre d'époques d'entraînement
+     * @param modelOutputPath Chemin où sauvegarder le modèle
+     * @param inputSize Taille de l'entrée
+     * @param numClasses Nombre de classes de sortie
+     */
+    public PresenceTrainer(int batchSize, int numEpochs, String modelOutputPath, int inputSize, int numClasses) {
+        super(batchSize, numEpochs, modelOutputPath);
+        this.inputSize = inputSize;
+        this.numClasses = numClasses;
+    }
+    
+    /**
+     * Constructeur avec configuration
+     * 
      * @param config Propriétés de configuration
      */
     public PresenceTrainer(Properties config) {
         super(config);
-        this.model = new PresenceModel(config);
-        this.dataDir = config.getProperty("presence.data.dir", "data/raw/presence");
-        this.modelDir = config.getProperty("presence.model.dir", "models/presence");
-        this.modelName = config.getProperty("presence.model.name", "presence_model");
+        this.inputSize = Integer.parseInt(config.getProperty("presence.input.size", "100"));
+        this.numClasses = Integer.parseInt(config.getProperty("presence.num.classes", "2"));
+    }
+
+    /**
+     * Prépare et charge les données pour l'entrainement
+     * @param dataDir Répertoire contenant les données d'entraînement
+     * @param trainTestRatio Ratio pour la division train/test
+     * @return Un tableau de deux éléments: [trainData, testData]
+     */
+    public DataSet[] prepareData(String dataDir, double trainTestRatio) throws IOException {
+        // Cette méthode simule le chargement de données de présence
+        // Dans une implémentation réelle, vous utiliseriez des capteurs de présence
         
-        try {
-            createDirectories(modelDir);
-        } catch (IOException e) {
-            log.error("Erreur lors de la création des répertoires", e);
+        log.info("Chargement des données de présence depuis {}", dataDir);
+        
+        // Créer une liste pour stocker les données
+        List<DataSet> dataList = new ArrayList<>();
+        
+        // Dans cette simulation, nous créons quelques exemples synthétiques
+        for (int i = 0; i < 100; i++) {
+            // Créer un exemple avec des valeurs aléatoires
+            DataSet example = createRandomExample(inputSize, numClasses);
+            dataList.add(example);
         }
+        
+        // Fusionner tous les exemples en un seul DataSet
+        DataSet allData = DataSet.merge(dataList);
+        allData.shuffle();
+        
+        // Diviser en ensembles d'entraînement et de test
+        return splitDataset(allData, trainTestRatio);
+    }
+    
+    /**
+     * Crée un exemple aléatoire pour les simulations
+     * @param inputSize Taille de l'entrée
+     * @param numClasses Nombre de classes
+     * @return Un DataSet contenant l'exemple
+     */
+    private DataSet createRandomExample(int inputSize, int numClasses) {
+        // Créer des données d'entrée aléatoires
+        float[] input = new float[inputSize];
+        for (int i = 0; i < inputSize; i++) {
+            input[i] = (float) Math.random();
+        }
+        
+        // Créer une étiquette aléatoire (one-hot encoding)
+        int labelIndex = (int) (Math.random() * numClasses);
+        float[] label = new float[numClasses];
+        label[labelIndex] = 1.0f;
+        
+        // Créer et retourner un DataSet
+        return new DataSet(org.nd4j.linalg.factory.Nd4j.create(input), org.nd4j.linalg.factory.Nd4j.create(label));
+    }
+
+    /**
+     * Entraîne le modèle sur des données de présence
+     * @param dataDir Répertoire contenant les données d'entraînement
+     * @param trainTestRatio Ratio pour la division train/test
+     * @throws IOException Si une erreur survient lors de la lecture des données ou de la sauvegarde du modèle
+     */
+    public void trainOnPresenceData(String dataDir, double trainTestRatio) throws IOException {
+        // Préparer les données
+        DataSet[] data = prepareData(dataDir, trainTestRatio);
+        DataSet trainData = data[0];
+        DataSet testData = data[1];
+
+        // Initialiser le modèle
+        initializeModel(inputSize, numClasses);
+
+        // Entraîner le modèle
+        train(trainData, testData);
     }
     
     @Override
     protected DataSet prepareData() throws IOException {
-        log.info("Préparation des données pour le modèle de détection de présence");
+        // Utiliser le répertoire spécifié dans la configuration
+        String dataDir = config.getProperty("presence.data.dir", "data/presence");
         
-        // Charger les fichiers de données
-        List<File> dataFiles = DataProcessor.loadDataFiles(dataDir);
+        // Préparer les données
+        DataSet[] datasets = prepareData(dataDir, 0.8);
         
-        // Vérifier si des fichiers de données ont été trouvés
-        if (dataFiles.isEmpty()) {
-            log.error("Aucun fichier de données trouvé dans {}", dataDir);
-            return null;
-        }
-        
-        // Traiter les fichiers de données
-        int inputSize = Integer.parseInt(config.getProperty("presence.model.input.size", "64"));
-        int totalExamples = 1000; // Nombre d'exemples à générer (à ajuster selon les besoins)
-        
-        // Pour cet exemple, nous allons générer des données synthétiques
-        // Dans un cas réel, vous chargeriez et prétraiteriez vos vraies données ici
-        return generateSyntheticData(inputSize, totalExamples);
-    }
-    
-    /**
-     * Génère des données synthétiques pour l'entraînement.
-     * Cette méthode est utilisée uniquement pour démontrer le flux de travail.
-     * Dans un cas réel, vous utiliseriez vos propres données.
-     *
-     * @param inputSize Taille de l'entrée du modèle
-     * @param numExamples Nombre d'exemples à générer
-     * @return DataSet contenant les données synthétiques
-     */
-    private DataSet generateSyntheticData(int inputSize, int numExamples) {
-        log.info("Génération de données synthétiques avec {} exemples", numExamples);
-        
-        // Créer des tableaux pour les entrées et les sorties
-        INDArray features = Nd4j.zeros(numExamples, inputSize);
-        INDArray labels = Nd4j.zeros(numExamples, 2); // 2 classes: absence/présence
-        
-        Random random = new Random(42); // Graine fixe pour la reproductibilité
-        
-        // Générer des caractéristiques et des étiquettes aléatoires
-        for (int i = 0; i < numExamples; i++) {
-            // Décider si cet exemple représente une présence (1) ou une absence (0)
-            boolean isPresent = random.nextDouble() > 0.5;
-            
-            // Générer des caractéristiques bruitées en fonction de la classe
-            double baseValue = isPresent ? 0.7 : 0.3;
-            
-            for (int j = 0; j < inputSize; j++) {
-                // Ajouter du bruit à la valeur de base
-                double noise = random.nextGaussian() * 0.1;
-                double value = Math.max(0, Math.min(1, baseValue + noise));
-                features.putScalar(i, j, value);
-            }
-            
-            // Définir l'étiquette one-hot
-            labels.putScalar(i, isPresent ? 1 : 0, 1.0);
-        }
-        
-        return new DataSet(features, labels);
+        // Retourner l'ensemble complet
+        return DataSet.merge(Arrays.asList(datasets));
     }
     
     @Override
     protected MultiLayerNetwork getModel() {
-        // Initialiser un nouveau modèle
-        model.initNewModel();
-        return model.getNetwork();
+        return ModelUtils.createSimpleNetwork(inputSize, numClasses);
     }
     
     @Override
     protected void saveModel(MultiLayerNetwork network) throws IOException {
-        String modelPath = new File(modelDir, modelName + ".zip").getPath();
-        log.info("Sauvegarde du modèle final vers {}", modelPath);
-        ModelUtils.saveModel(network, modelPath);
+        String modelPath = config != null ? 
+            config.getProperty("presence.model.path", modelOutputPath) : 
+            modelOutputPath;
+        
+        ModelUtils.saveModel(network, modelPath, true);
     }
     
     @Override
     protected void saveCheckpoint(MultiLayerNetwork network, int epoch) throws IOException {
-        String checkpointPath = new File(modelDir + "/checkpoints", 
-                                          modelName + "_epoch_" + epoch + ".zip").getPath();
-        log.info("Sauvegarde du checkpoint à l'époque {} vers {}", epoch, checkpointPath);
-        ModelUtils.saveModel(network, checkpointPath);
+        // Déterminer le chemin du checkpoint
+        String baseDir = config != null ? 
+            config.getProperty("presence.checkpoint.dir", "checkpoints/presence") : 
+            "checkpoints/presence";
+        
+        // Assurer que le répertoire existe
+        createDirectories(baseDir);
+        
+        // Créer le chemin complet
+        String checkpointPath = baseDir + "/presence_model_epoch_" + epoch + ".zip";
+        
+        // Sauvegarder le checkpoint
+        ModelUtils.saveModel(network, checkpointPath, true);
     }
 }
