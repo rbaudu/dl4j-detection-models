@@ -1,7 +1,6 @@
 package com.project.test;
 
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-import org.deeplearning4j.nn.transferlearning.TransferLearningHelper;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.slf4j.Logger;
@@ -70,15 +69,19 @@ public abstract class AbstractModelTester implements ModelTester {
             result.setF1Score(eval.f1());
             
             // Ajouter les précisions par classe
-            for (int i = 0; i < eval.getNumClasses(); i++) {
-                String label = eval.getClassLabel(i);
-                double classAccuracy = eval.truePositives().getCount(i) / 
-                    (eval.truePositives().getCount(i) + eval.falseNegatives().getCount(i));
+            for (int i = 0; i < eval.getClasses().size(); i++) {
+                String label = eval.getClasses().get(i);
+                
+                // Calculer la précision par classe
+                double truePositives = eval.truePositives().getCount(i);
+                double falseNegatives = eval.falseNegatives().getCount(i);
+                double classAccuracy = truePositives / (truePositives + falseNegatives);
+                
                 result.addClassAccuracy(label, classAccuracy);
             }
             
             // Ajouter des métriques supplémentaires
-            result.addMetric("Matrix de confusion", eval.getConfusionMatrix());
+            result.addMetric("Matrix de confusion", eval.getConfusionMatrix().toCSV());
             
             log.info("Test du modèle terminé avec précision: {}%", result.getAccuracy() * 100);
             
