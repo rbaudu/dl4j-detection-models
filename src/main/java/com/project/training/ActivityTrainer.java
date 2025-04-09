@@ -62,7 +62,7 @@ public class ActivityTrainer extends ModelTrainer {
         this.height = Integer.parseInt(config.getProperty("activity.image.height", "64"));
         this.width = Integer.parseInt(config.getProperty("activity.image.width", "64"));
         this.channels = Integer.parseInt(config.getProperty("activity.image.channels", "3"));
-        this.numClasses = Integer.parseInt(config.getProperty("activity.num.classes", "5"));
+        this.numClasses = Integer.parseInt(config.getProperty("activity.model.num.classes", "27"));
         this.rng = new Random(42);
     }
 
