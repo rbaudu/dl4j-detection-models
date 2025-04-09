@@ -1,5 +1,6 @@
 package com.project.training;
 
+import com.project.common.utils.LoggingUtils;
 import com.project.common.utils.ModelUtils;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
@@ -9,12 +10,25 @@ import org.datavec.image.transform.ImageTransform;
 import org.datavec.image.transform.PipelineImageTransform;
 import org.datavec.image.transform.ResizeImageTransform;
 import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
+import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
+import org.deeplearning4j.nn.conf.inputs.InputType;
+import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
+import org.deeplearning4j.nn.conf.layers.DenseLayer;
+import org.deeplearning4j.nn.conf.layers.OutputLayer;
+import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.common.primitives.Pair;
+import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
+import org.nd4j.linalg.learning.config.Adam;
+import org.nd4j.linalg.lossfunctions.LossFunctions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,12 +39,14 @@ import java.util.Properties;
 import java.util.Random;
 
 public class ActivityTrainer extends ModelTrainer {
+    private static final Logger log = LoggerFactory.getLogger(ActivityTrainer.class);
 
     private int height;
     private int width;
     private int channels;
     private int numClasses;
     private Random rng;
+    private boolean autoDetectClasses;
 
     /**
      * Constructeur avec paramètres individuels
@@ -50,6 +66,7 @@ public class ActivityTrainer extends ModelTrainer {
         this.channels = channels;
         this.numClasses = numClasses;
         this.rng = new Random(42);
+        this.autoDetectClasses = false;
     }
     
     /**
@@ -64,6 +81,10 @@ public class ActivityTrainer extends ModelTrainer {
         this.channels = Integer.parseInt(config.getProperty("activity.image.channels", "3"));
         this.numClasses = Integer.parseInt(config.getProperty("activity.model.num.classes", "27"));
         this.rng = new Random(42);
+        this.autoDetectClasses = Boolean.parseBoolean(config.getProperty("activity.auto.detect.classes", "true"));
+        
+        // Journaliser les paramètres d'entraînement
+        LoggingUtils.logActivityTrainingParameters(config);
     }
 
     /**
@@ -78,10 +99,38 @@ public class ActivityTrainer extends ModelTrainer {
         FileSplit dataSplit = new FileSplit(dataDirFile, NativeImageLoader.ALLOWED_FORMATS, rng);
 
         // Créer un ImageRecordReader pour lire les images
-        // Correction: utiliser ParentPathLabelGenerator au lieu de File
         ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator();
         ImageRecordReader recordReader = new ImageRecordReader(height, width, channels, labelMaker);
         recordReader.initialize(dataSplit);
+        
+        // Détection automatique du nombre de classes si activée
+        if (autoDetectClasses) {
+            // Récupérer le nombre de classes à partir du RecordReader
+            List<String> labels = recordReader.getLabels();
+            int detectedClasses = labels.size();
+            
+            if (detectedClasses != numClasses) {
+                log.info("Détection automatique des classes: {} classes détectées dans le répertoire {}", 
+                         detectedClasses, dataDir);
+                log.info("Classes détectées: {}", String.join(", ", labels));
+                
+                if (detectedClasses < 2) {
+                    log.warn("Nombre de classes détectées insuffisant ({}), utilisation de la valeur par défaut: {}", 
+                             detectedClasses, numClasses);
+                } else {
+                    log.info("Mise à jour du nombre de classes de {} à {}", numClasses, detectedClasses);
+                    this.numClasses = detectedClasses;
+                    
+                    // Mettre à jour la configuration si elle existe
+                    if (config != null) {
+                        config.setProperty("activity.model.num.classes", String.valueOf(detectedClasses));
+                    }
+                }
+            } else {
+                log.info("Nombre de classes configuré ({}) correspond au nombre de classes détectées", numClasses);
+                log.info("Classes détectées: {}", String.join(", ", labels));
+            }
+        }
 
         // Créer un DataSetIterator pour convertir les images en DataSet
         RecordReaderDataSetIterator iterator = new RecordReaderDataSetIterator(recordReader, batchSize, 1, numClasses);
@@ -100,12 +149,11 @@ public class ActivityTrainer extends ModelTrainer {
         // Fusionner tous les mini-lots en un seul DataSet
         DataSet allData = DataSet.merge(dataList);
         allData.shuffle();
-
-        // Diviser en ensembles d'entraînement et de test
-        int numExamples = allData.numExamples();
-        int trainSize = (int) (numExamples * trainTestRatio);
         
-        // Correction: utiliser l'API correcte pour diviser les données
+        // Journaliser les informations sur les données
+        log.info("Données chargées: {} exemples, {} classes", allData.numExamples(), numClasses);
+        
+        // Diviser en ensembles d'entraînement et de test
         return splitDataset(allData, trainTestRatio);
     }
 
@@ -131,10 +179,38 @@ public class ActivityTrainer extends ModelTrainer {
         PipelineImageTransform pipeline = new PipelineImageTransform(transforms, false);
         
         // Créer un ImageRecordReader pour lire les images
-        // Correction: utiliser ParentPathLabelGenerator au lieu de File
         ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator();
         ImageRecordReader recordReader = new ImageRecordReader(height, width, channels, labelMaker);
         recordReader.initialize(dataSplit, pipeline);
+        
+        // Détection automatique du nombre de classes si activée
+        if (autoDetectClasses) {
+            // Récupérer le nombre de classes à partir du RecordReader
+            List<String> labels = recordReader.getLabels();
+            int detectedClasses = labels.size();
+            
+            if (detectedClasses != numClasses) {
+                log.info("Détection automatique des classes: {} classes détectées dans le répertoire {}", 
+                         detectedClasses, dataDir);
+                log.info("Classes détectées: {}", String.join(", ", labels));
+                
+                if (detectedClasses < 2) {
+                    log.warn("Nombre de classes détectées insuffisant ({}), utilisation de la valeur par défaut: {}", 
+                             detectedClasses, numClasses);
+                } else {
+                    log.info("Mise à jour du nombre de classes de {} à {}", numClasses, detectedClasses);
+                    this.numClasses = detectedClasses;
+                    
+                    // Mettre à jour la configuration si elle existe
+                    if (config != null) {
+                        config.setProperty("activity.model.num.classes", String.valueOf(detectedClasses));
+                    }
+                }
+            } else {
+                log.info("Nombre de classes configuré ({}) correspond au nombre de classes détectées", numClasses);
+                log.info("Classes détectées: {}", String.join(", ", labels));
+            }
+        }
 
         // Créer un DataSetIterator pour convertir les images en DataSet
         RecordReaderDataSetIterator iterator = new RecordReaderDataSetIterator(recordReader, batchSize, 1, numClasses);
@@ -153,9 +229,11 @@ public class ActivityTrainer extends ModelTrainer {
         // Fusionner tous les mini-lots en un seul DataSet
         DataSet allData = DataSet.merge(dataList);
         allData.shuffle();
+        
+        // Journaliser les informations sur les données
+        log.info("Données chargées avec augmentation: {} exemples, {} classes", allData.numExamples(), numClasses);
 
         // Diviser en ensembles d'entraînement et de test
-        // Correction: utiliser l'API correcte pour diviser les données
         return splitDataset(allData, trainTestRatio);
     }
 
@@ -172,11 +250,80 @@ public class ActivityTrainer extends ModelTrainer {
         DataSet testData = data[1];
 
         // Initialiser le modèle
-        int numInputs = height * width * channels;
-        initializeModel(numInputs, numClasses);
+        initializeModel(numClasses);
 
         // Entraîner le modèle
         train(trainData, testData);
+    }
+    
+    /**
+     * Initialise le modèle CNN pour la classification d'images
+     * @param numOutputs Nombre de classes en sortie
+     */
+    public void initializeModel(int numOutputs) {
+        // Créer un modèle CNN simple adapté aux images
+        double learningRate = Double.parseDouble(config.getProperty("activity.model.learning.rate", "0.0005"));
+        int seed = Integer.parseInt(config.getProperty("training.seed", "123"));
+        double l2 = Double.parseDouble(config.getProperty("training.l2", "0.0001"));
+        
+        log.info("Initialisation du modèle CNN pour la détection d'activité");
+        log.info("Dimensions des images: {}x{}x{}", height, width, channels);
+        log.info("Nombre de classes: {}", numOutputs);
+        
+        MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                .seed(seed)
+                .l2(l2)
+                .weightInit(WeightInit.XAVIER)
+                .updater(new Adam(learningRate))
+                .list()
+                // Première couche de convolution
+                .layer(0, new ConvolutionLayer.Builder(5, 5)
+                        .nIn(channels)
+                        .stride(1, 1)
+                        .nOut(32)
+                        .activation(Activation.RELU)
+                        .build())
+                // Couche de sous-échantillonnage (pooling)
+                .layer(1, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(2, 2)
+                        .stride(2, 2)
+                        .build())
+                // Deuxième couche de convolution
+                .layer(2, new ConvolutionLayer.Builder(5, 5)
+                        .stride(1, 1)
+                        .nOut(64)
+                        .activation(Activation.RELU)
+                        .build())
+                // Couche de sous-échantillonnage (pooling)
+                .layer(3, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(2, 2)
+                        .stride(2, 2)
+                        .build())
+                // Couche dense (fully connected)
+                .layer(4, new DenseLayer.Builder()
+                        .nOut(512)
+                        .activation(Activation.RELU)
+                        .build())
+                // Couche de sortie
+                .layer(5, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+                        .nOut(numOutputs)
+                        .activation(Activation.SOFTMAX)
+                        .build())
+                // Spécifier le type d'entrée: images de hauteur x largeur avec channels canaux
+                .setInputType(InputType.convolutional(height, width, channels))
+                .build();
+        
+        model = new MultiLayerNetwork(conf);
+        model.init();
+        
+        // Enregistrer les métriques d'entraînement toutes les 10 itérations
+        int printIterations = Integer.parseInt(config.getProperty("training.print.iterations", "10"));
+        model.setListeners(new ScoreIterationWithLoggingListener(printIterations));
+        
+        // Log des informations sur la structure du modèle
+        long numParams = model.numParams();
+        int[] inputShape = {channels, height, width};
+        LoggingUtils.logModelStructureInfo("activité", numParams, inputShape, numOutputs);
     }
     
     @Override
@@ -193,8 +340,11 @@ public class ActivityTrainer extends ModelTrainer {
     
     @Override
     protected MultiLayerNetwork getModel() {
-        int numInputs = height * width * channels;
-        return ModelUtils.createSimpleNetwork(numInputs, numClasses);
+        // Initialiser un modèle CNN si ce n'est pas déjà fait
+        if (model == null) {
+            initializeModel(numClasses);
+        }
+        return model;
     }
     
     @Override
@@ -203,7 +353,9 @@ public class ActivityTrainer extends ModelTrainer {
             config.getProperty("activity.model.path", modelOutputPath) : 
             modelOutputPath;
         
+        log.info("Sauvegarde du modèle de détection d'activité vers: {}", modelPath);
         ModelUtils.saveModel(network, modelPath, true);
+        log.info("Modèle sauvegardé avec succès");
     }
     
     @Override
@@ -220,6 +372,7 @@ public class ActivityTrainer extends ModelTrainer {
         String checkpointPath = baseDir + "/activity_model_epoch_" + epoch + ".zip";
         
         // Sauvegarder le checkpoint
+        log.info("Sauvegarde du checkpoint d'époque {} vers: {}", epoch, checkpointPath);
         ModelUtils.saveModel(network, checkpointPath, true);
     }
 }
