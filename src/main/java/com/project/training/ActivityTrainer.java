@@ -1,5 +1,6 @@
 package com.project.training;
 
+import com.project.common.utils.ModelUtils;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
 import org.datavec.image.loader.NativeImageLoader;
@@ -193,8 +194,7 @@ public class ActivityTrainer extends ModelTrainer {
     @Override
     protected MultiLayerNetwork getModel() {
         int numInputs = height * width * channels;
-        MultiLayerNetwork network = ModelUtils.createSimpleNetwork(numInputs, numClasses);
-        return network;
+        return ModelUtils.createSimpleNetwork(numInputs, numClasses);
     }
     
     @Override
