@@ -67,12 +67,58 @@ public class Application {
                 break;
                 
             case "train-activity":
-                log.info("Démarrage de l'entraînement du modèle de détection d'activité");
+                // Détecter le type de modèle à utiliser
+                String activityModelType = config.getProperty("activity.model.type", "STANDARD");
+                
+                if ("VGG16".equalsIgnoreCase(activityModelType)) {
+                    log.info("Démarrage de l'entraînement du modèle VGG16 de détection d'activité");
+                    // Forcer l'utilisation de VGG16
+                    config.setProperty("activity.model.type", "VGG16");
+                    new ActivityTrainer(config).train();
+                } else if ("RESNET".equalsIgnoreCase(activityModelType)) {
+                    log.info("Démarrage de l'entraînement du modèle ResNet de détection d'activité");
+                    // Forcer l'utilisation de ResNet
+                    config.setProperty("activity.model.type", "RESNET");
+                    new ActivityTrainer(config).train();
+                } else {
+                    log.info("Démarrage de l'entraînement du modèle standard de détection d'activité");
+                    new ActivityTrainer(config).train();
+                }
+                break;
+                
+            case "train-activity-vgg16":
+                log.info("Démarrage de l'entraînement du modèle VGG16 de détection d'activité");
+                // Forcer l'utilisation de VGG16
+                config.setProperty("activity.model.type", "VGG16");
+                new ActivityTrainer(config).train();
+                break;
+                
+            case "train-activity-resnet":
+                log.info("Démarrage de l'entraînement du modèle ResNet de détection d'activité");
+                // Forcer l'utilisation de ResNet
+                config.setProperty("activity.model.type", "RESNET");
                 new ActivityTrainer(config).train();
                 break;
                 
             case "train-sound":
-                log.info("Démarrage de l'entraînement du modèle de détection de sons");
+                // Détecter le type de modèle à utiliser
+                String soundModelType = config.getProperty("sound.model.type", "STANDARD");
+                
+                if ("SPECTROGRAM".equalsIgnoreCase(soundModelType)) {
+                    log.info("Démarrage de l'entraînement du modèle spectrogram de détection de sons");
+                    // Forcer l'utilisation de Spectrogram
+                    config.setProperty("sound.model.type", "SPECTROGRAM");
+                    new SoundTrainer(config).train();
+                } else {
+                    log.info("Démarrage de l'entraînement du modèle standard de détection de sons");
+                    new SoundTrainer(config).train();
+                }
+                break;
+                
+            case "train-sound-spectrogram":
+                log.info("Démarrage de l'entraînement du modèle spectrogram de détection de sons");
+                // Forcer l'utilisation de Spectrogram
+                config.setProperty("sound.model.type", "SPECTROGRAM");
                 new SoundTrainer(config).train();
                 break;
                 
@@ -87,8 +133,14 @@ public class Application {
                     new PresenceTrainer(config).train();
                 }
                 
-                // Entraînement des autres modèles
+                // Entraînement du modèle d'activité
+                String activityType = config.getProperty("activity.model.type", "STANDARD");
+                // La classe ActivityTrainer devrait maintenant gérer tous les types de modèles
                 new ActivityTrainer(config).train();
+                
+                // Entraînement du modèle de son
+                String soundType = config.getProperty("sound.model.type", "STANDARD");
+                // La classe SoundTrainer devrait maintenant gérer tous les types de modèles
                 new SoundTrainer(config).train();
                 break;
                 
@@ -179,18 +231,21 @@ public class Application {
     private static void printUsage() {
         System.out.println("Usage: java -jar dl4j-detection-models.jar <commande>");
         System.out.println("Commandes disponibles :");
-        System.out.println("  train-presence     : Entraîne le modèle de détection de présence (YOLO ou standard selon la config)");
-        System.out.println("  train-presence-yolo: Entraîne spécifiquement le modèle YOLO de détection de présence");
-        System.out.println("  train-activity     : Entraîne le modèle de détection d'activité");
-        System.out.println("  train-sound        : Entraîne le modèle de détection de sons");
-        System.out.println("  train-all          : Entraîne tous les modèles");
-        System.out.println("  export-presence    : Exporte le modèle de détection de présence");
-        System.out.println("  export-activity    : Exporte le modèle de détection d'activité");
-        System.out.println("  export-sound       : Exporte le modèle de détection de sons");
-        System.out.println("  export-all         : Exporte tous les modèles");
-        System.out.println("  test-presence      : Teste le modèle de détection de présence");
-        System.out.println("  test-activity      : Teste le modèle de détection d'activité");
-        System.out.println("  test-sound         : Teste le modèle de détection de sons");
-        System.out.println("  test-all           : Teste tous les modèles");
+        System.out.println("  train-presence        : Entraîne le modèle de détection de présence (YOLO ou standard selon la config)");
+        System.out.println("  train-presence-yolo   : Entraîne spécifiquement le modèle YOLO de détection de présence");
+        System.out.println("  train-activity        : Entraîne le modèle de détection d'activité selon la configuration");
+        System.out.println("  train-activity-vgg16  : Entraîne spécifiquement le modèle VGG16 de détection d'activité");
+        System.out.println("  train-activity-resnet : Entraîne spécifiquement le modèle ResNet de détection d'activité");
+        System.out.println("  train-sound           : Entraîne le modèle de détection de sons selon la configuration");
+        System.out.println("  train-sound-spectrogram: Entraîne spécifiquement le modèle basé sur spectrogrammes");
+        System.out.println("  train-all             : Entraîne tous les modèles");
+        System.out.println("  export-presence       : Exporte le modèle de détection de présence");
+        System.out.println("  export-activity       : Exporte le modèle de détection d'activité");
+        System.out.println("  export-sound          : Exporte le modèle de détection de sons");
+        System.out.println("  export-all            : Exporte tous les modèles");
+        System.out.println("  test-presence         : Teste le modèle de détection de présence");
+        System.out.println("  test-activity         : Teste le modèle de détection d'activité");
+        System.out.println("  test-sound            : Teste le modèle de détection de sons");
+        System.out.println("  test-all              : Teste tous les modèles");
     }
 }
