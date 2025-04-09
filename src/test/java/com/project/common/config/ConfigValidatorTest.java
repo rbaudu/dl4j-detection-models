@@ -54,7 +54,11 @@ public class ConfigValidatorTest {
     @Test
     public void testInvalidNumClasses() {
         // Configurer un nombre de classes invalide pour le modèle d'activité
-        Properties config = new Properties(validConfig);
+        Properties config = new Properties();
+        // Copier toutes les propriétés valides
+        for (String key : validConfig.stringPropertyNames()) {
+            config.setProperty(key, validConfig.getProperty(key));
+        }
         config.setProperty("activity.model.num.classes", "0");
         
         assertFalse("La configuration avec un nombre de classes invalide ne devrait pas passer", 
@@ -64,7 +68,11 @@ public class ConfigValidatorTest {
     @Test
     public void testInvalidModelType() {
         // Configurer un type de modèle inconnu (mais devrait être traité comme avertissement, pas erreur)
-        Properties config = new Properties(validConfig);
+        Properties config = new Properties();
+        // Copier toutes les propriétés valides
+        for (String key : validConfig.stringPropertyNames()) {
+            config.setProperty(key, validConfig.getProperty(key));
+        }
         config.setProperty("activity.model.type", "UNKNOWN_TYPE");
         
         assertTrue("La configuration avec un type de modèle inconnu devrait passer avec avertissement", 
@@ -74,7 +82,11 @@ public class ConfigValidatorTest {
     @Test
     public void testInvalidImageDimensions() {
         // Configurer des dimensions d'image négatives
-        Properties config = new Properties(validConfig);
+        Properties config = new Properties();
+        // Copier toutes les propriétés valides
+        for (String key : validConfig.stringPropertyNames()) {
+            config.setProperty(key, validConfig.getProperty(key));
+        }
         config.setProperty("activity.model.input.height", "-1");
         
         assertFalse("La configuration avec des dimensions d'image négatives ne devrait pas passer", 
@@ -84,8 +96,13 @@ public class ConfigValidatorTest {
     @Test
     public void testMissingRequiredPath() {
         // Supprimer une propriété de chemin requise
-        Properties config = new Properties(validConfig);
-        config.remove("data.root.dir");
+        Properties config = new Properties();
+        // Copier toutes les propriétés valides sauf data.root.dir
+        for (String key : validConfig.stringPropertyNames()) {
+            if (!key.equals("data.root.dir")) {
+                config.setProperty(key, validConfig.getProperty(key));
+            }
+        }
         
         assertFalse("La configuration avec un chemin requis manquant ne devrait pas passer", 
                    ConfigValidator.validateConfig(config));
