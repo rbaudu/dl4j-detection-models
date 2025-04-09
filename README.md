@@ -10,6 +10,8 @@ Ce projet fournit une infrastructure Java complète pour l'entraînement et l'ex
    - **ResNet** : Utilise ResNet50 pour la classification d'images avec transfert d'apprentissage
    - **Standard (MobileNetV2)** : Utilise MobileNetV2 pour la classification plus légère
 3. **Détection de sons** : Identifie et classifie différents types de sons
+   - **Standard (YAMNet)** : Utilise YAMNet pour la classification de sons
+   - **Spectrogramme** : Convertit les sons en spectrogrammes et utilise des modèles de vision (VGG16/ResNet) pour la classification
 
 Les modèles sont exportés au format ZIP compatible avec DL4J, ce qui permet de les intégrer facilement dans d'autres applications Java.
 
@@ -20,6 +22,7 @@ Cette implémentation utilise le **transfert d'apprentissage** avec des modèles
 - **YOLO** pour la détection de présence (détection d'objets)
 - **VGG16/ResNet50** pour la détection d'activité (classification d'images)
 - **YAMNet** pour la détection de sons (classification audio)
+- **VGG16/ResNet50** sur spectrogrammes pour la détection de sons basée sur l'analyse visuelle
 
 Cette approche permet d'obtenir de bonnes performances même avec un nombre limité de données d'entraînement.
 
@@ -53,13 +56,16 @@ project-root/
 │   │   │       │   ├── presence/    # Modèle de présence
 │   │   │       │   │   ├── PresenceModel.java  # Modèle standard
 │   │   │       │   │   └── YOLOPresenceModel.java  # Modèle YOLO
-│   │   │       │   └── sound/       # Modèle de son (YAMNet)
+│   │   │       │   └── sound/       # Modèle de son
+│   │   │       │       ├── SoundModel.java  # Modèle standard (YAMNet)
+│   │   │       │       └── SpectrogramSoundModel.java  # Modèle basé sur spectrogrammes
 │   │   │       │
 │   │   │       ├── training/        # Entraînement des modèles
 │   │   │       ├── export/          # Exportation des modèles
 │   │   │       ├── test/            # Tests des modèles
 │   │   │       ├── examples/        # Exemples d'utilisation
-│   │   │       │   └── ModelUsageExample.java  # Démonstration des modèles
+│   │   │       │   ├── ModelUsageExample.java  # Démonstration des modèles
+│   │   │       │   └── SpectrogramSoundExample.java  # Démonstration du modèle de sons
 │   │   │       └── Application.java # Point d'entrée
 │   │   │
 │   │   └── resources/               # Ressources
@@ -79,7 +85,11 @@ project-root/
 │   │   │   ├── CONVERSING/
 │   │   │   ├── COOKING/
 │   │   │   └── ...                  # Autres activités
-│   │   └── sound/
+│   │   └── sound/                   # Sons classés par répertoires d'activités
+│   │       ├── CLEANING/
+│   │       ├── CONVERSING/
+│   │       ├── COOKING/
+│   │       └── ...                  # Autres activités
 │   │
 │   └── processed/                   # Données prétraitées
 │
@@ -94,9 +104,14 @@ project-root/
 │   │   ├── resnet_model.zip         # Modèle ResNet
 │   │   └── checkpoints/
 │   └── sound/
+│       ├── sound_model.zip          # Modèle standard (YAMNet)
+│       ├── spectrogram_model.zip    # Modèle basé sur spectrogrammes
 │       └── checkpoints/
 │
 ├── export/                          # Modèles exportés pour DL4J
+│
+├── output/                          # Sorties diverses
+│   └── spectrograms/                # Spectrogrammes générés
 │
 ├── scripts/                         # Scripts utilitaires
 │   ├── build.sh
@@ -139,18 +154,6 @@ Le modèle de détection d'activité prend en charge les 27 classes suivantes :
 26. WATCHING_TV - Regarder la télévision - Watch_TV
 27. WRITING - Ecrire - Write
 
-## Classes de sons
-
-Le modèle de détection de sons prend en charge les classes suivantes par défaut :
-
-1. Silence
-2. Parole
-3. Musique
-4. Bruit ambiant
-5. Alarme
-
-Ces classes peuvent être personnalisées dans le fichier de configuration.
-
 ## Nouveaux modèles implémentés
 
 ### Modèle YOLO pour la détection de présence
@@ -171,12 +174,27 @@ Pour la classification d'activités, nous avons implémenté deux architectures 
 
 Ces modèles utilisent le transfert d'apprentissage à partir de poids pré-entraînés sur ImageNet, puis sont fine-tunés sur notre jeu de données d'activités.
 
+### Modèle de reconnaissance audio basé sur spectrogrammes
+
+Une approche innovante a été implémentée pour la détection de sons, qui combine traitement audio et vision par ordinateur :
+
+1. **Génération de spectrogrammes** : Convertit les fichiers audio (WAV, MP3, OGG) en spectrogrammes Mel qui représentent visuellement les caractéristiques fréquentielles et temporelles des sons
+2. **Classification par modèles de vision** : Utilise soit VGG16 soit ResNet50 pour classifier ces spectrogrammes
+3. **Transfert d'apprentissage** : Part de modèles pré-entraînés sur ImageNet pour une meilleure généralisation
+
+Cette approche offre plusieurs avantages :
+- Meilleure représentation des sons capturant à la fois les informations temporelles et fréquentielles
+- Exploitation de la puissance des modèles de vision pré-entraînés
+- Visualisation des caractéristiques audio pour une meilleure compréhension
+- Support de plusieurs formats audio (WAV, MP3, OGG)
+
 ## Prérequis
 
 - Java JDK 11 ou supérieur
 - Maven 3.6.3 ou supérieur
 - Au moins 4 Go de RAM disponible pour l'entraînement des modèles
 - Au moins 8 Go de RAM recommandé pour les modèles VGG16 et ResNet
+- FFmpeg pour le traitement audio (pour le modèle de sons basé sur spectrogrammes)
 
 ## Installation et compilation
 
@@ -197,12 +215,13 @@ Ce script compilera le projet et créera les répertoires nécessaires.
 
 Tous les paramètres de configuration sont centralisés dans le fichier `config/application.properties`. Vous pouvez modifier ce fichier pour ajuster les paramètres des modèles, les chemins de données, etc.
 
-### Paramètres importants pour les nouveaux modèles
+### Paramètres importants pour les modèles
 
 ```properties
 # Type de modèle à utiliser pour chaque tâche
 presence.model.type=YOLO
 activity.model.type=VGG16
+sound.model.type=SPECTROGRAM
 
 # Configuration du modèle YOLO
 presence.model.use.tiny.yolo=true
@@ -212,6 +231,18 @@ presence.model.input.width=416
 # Configuration de VGG16
 activity.model.learning.rate=0.0001
 activity.model.dropout=0.5
+
+# Configuration du modèle de sons basé sur spectrogrammes
+sound.spectrogram.height=224
+sound.spectrogram.width=224
+sound.model.use.vgg16=true  # true pour VGG16, false pour ResNet
+sound.force.retrain=false
+
+# Paramètres d'extraction de spectrogrammes
+sound.sample.rate=44100
+sound.fft.size=2048
+sound.hop.size=512
+sound.mel.bands=128
 ```
 
 ## Utilisation
@@ -224,6 +255,7 @@ Pour choisir le modèle à utiliser, vous pouvez:
    ```
    presence.model.type=YOLO
    activity.model.type=VGG16
+   sound.model.type=SPECTROGRAM
    ```
 
 2. Utiliser le ModelManager dans votre code:
@@ -249,6 +281,7 @@ Pour entraîner un modèle spécifique :
 java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-presence-yolo
 java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-activity-vgg16
 java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-activity-resnet
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar train-sound-spectrogram
 ```
 
 ### Test des modèles
@@ -263,6 +296,7 @@ Pour tester un modèle spécifique :
 java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-presence-yolo
 java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-activity-vgg16
 java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-activity-resnet
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar test-sound-spectrogram
 ```
 
 ### Exportation des modèles
@@ -276,7 +310,71 @@ Pour exporter un modèle spécifique :
 ```
 java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-presence-yolo
 java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-activity-vgg16
-java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-activity-resnet
+java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-sound-spectrogram
+```
+
+## Utilisation du modèle de sons basé sur spectrogrammes
+
+### Préparation des données audio
+
+1. Organisez vos fichiers audio (.wav, .mp3, .ogg) dans des sous-répertoires correspondant aux classes d'activités:
+   ```
+   data/raw/sound/COOKING/audio1.wav
+   data/raw/sound/COOKING/audio2.mp3
+   data/raw/sound/CONVERSING/audio1.wav
+   ...
+   ```
+
+2. Si vous n'avez pas de structure de répertoires, l'exemple `SpectrogramSoundExample` peut en créer une pour vous:
+   ```java
+   // Exécutez cet exemple pour créer la structure et générer des spectrogrammes
+   java -cp target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar com.project.examples.SpectrogramSoundExample
+   ```
+
+### Génération et visualisation de spectrogrammes
+
+L'exemple `SpectrogramSoundExample` peut générer et sauvegarder des spectrogrammes pour visualisation:
+
+```java
+// Générer un spectrogramme à partir d'un fichier audio
+BufferedImage spectrogram = soundModel.generateSpectrogram(audioFilePath);
+
+// Sauvegarder le spectrogramme en PNG
+String outputPath = "output/spectrograms/example_spectrogram.png";
+javax.imageio.ImageIO.write(spectrogram, "PNG", new File(outputPath));
+```
+
+Les spectrogrammes sont automatiquement générés lors de l'entraînement et de la prédiction, mais la visualisation peut être utile pour comprendre comment les sons sont représentés.
+
+### Entraînement du modèle
+
+```java
+// Charger la configuration
+Properties config = loadConfiguration("config/application.properties");
+
+// Créer le modèle
+SpectrogramSoundModel soundModel = new SpectrogramSoundModel(config);
+
+// Entraîner le modèle sur le jeu de données
+int epochs = 100;
+int batchSize = 32;
+soundModel.trainOnDataset("data/raw/sound", epochs, batchSize);
+
+// Sauvegarder le modèle
+soundModel.saveModel("models/sound/spectrogram_model.zip");
+```
+
+### Prédiction
+
+```java
+// Charger un modèle existant
+soundModel.loadModel("models/sound/spectrogram_model.zip");
+
+// Prédire la classe d'un fichier audio
+String audioFilePath = "path/to/audio/file.wav";
+String predictedClass = soundModel.predict(audioFilePath);
+
+System.out.println("Classe prédite: " + predictedClass);
 ```
 
 ## Exemple d'utilisation des modèles
@@ -285,8 +383,7 @@ Voici un exemple simplifié d'utilisation des modèles dans votre code:
 
 ```java
 // Charger la configuration
-ConfigurationManager configManager = new ConfigurationManager();
-Properties config = configManager.loadConfiguration("config/application.properties");
+Properties config = loadConfiguration("config/application.properties");
 
 // Créer le gestionnaire de modèles
 ModelManager modelManager = new ModelManager(config);
@@ -301,19 +398,20 @@ modelManager.setActivityModelType(ModelManager.ActivityModelType.VGG16);
 VGG16ActivityModel vgg16Model = modelManager.getVgg16ActivityModel();
 int activityClass = vgg16Model.predictActivity(imageData);
 
-// Utiliser ResNet pour la détection d'activité
-modelManager.setActivityModelType(ModelManager.ActivityModelType.RESNET);
-ResNetActivityModel resNetModel = modelManager.getResNetActivityModel();
-int activityClass = resNetModel.predictActivity(imageData);
+// Utiliser le modèle de sons basé sur spectrogrammes
+SpectrogramSoundModel soundModel = new SpectrogramSoundModel(config);
+soundModel.loadModel("models/sound/spectrogram_model.zip");
+String predictedSound = soundModel.predict(audioFilePath);
 ```
 
-Pour un exemple complet, voir la classe `ModelUsageExample.java`.
+Pour des exemples complets, voir les classes `ModelUsageExample.java` et `SpectrogramSoundExample.java`.
 
 ## Avantages des nouveaux modèles
 
 - **YOLO** offre une meilleure localisation spatiale et une détection plus précise des personnes
 - **VGG16** possède une excellente capacité de généralisation pour la classification d'images complexes
 - **ResNet** utilise des connexions résiduelles pour entraîner des réseaux très profonds sans dégradation
+- **SpectrogramSoundModel** combine traitement audio et vision par ordinateur pour une meilleure reconnaissance des sons
 
 ## Licence
 
