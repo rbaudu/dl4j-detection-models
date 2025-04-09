@@ -26,6 +26,7 @@ public abstract class BaseModelTester {
     protected final int inputSize;
     protected final int numClasses;
     protected final int testSamples;
+    protected final int batchSize;
     protected final Random random;
     
     public BaseModelTester(Properties config, String modelType) {
@@ -36,6 +37,7 @@ public abstract class BaseModelTester {
         this.inputSize = Integer.parseInt(config.getProperty(modelType + ".model.input.size", "64"));
         this.numClasses = Integer.parseInt(config.getProperty(modelType + ".model.num.classes", "2"));
         this.testSamples = Integer.parseInt(config.getProperty("test.num.samples", "100"));
+        this.batchSize = Integer.parseInt(config.getProperty("test.batch.size", "32"));
         this.random = new Random(Integer.parseInt(config.getProperty("training.seed", "123")));
     }
     
@@ -72,7 +74,7 @@ public abstract class BaseModelTester {
      * 
      * @return résultat de l'évaluation
      */
-    public TestResult testModel() {
+    public EvaluationResult testModel() {
         if (model == null) {
             log.error("Le modèle n'est pas chargé, impossible de le tester");
             return null;
@@ -95,17 +97,16 @@ public abstract class BaseModelTester {
             eval.eval(testData.getLabels(), output);
             
             // Créer le résultat
-            TestResult result = new TestResult();
+            EvaluationResult result = new EvaluationResult();
             result.setAccuracy(eval.accuracy());
             result.setPrecision(eval.precision());
             result.setRecall(eval.recall());
             result.setF1Score(eval.f1());
-            result.setConfusionMatrix(eval.getConfusionMatrix().toCSV());
+            result.addMetric("Matrice de confusion", eval.getConfusionMatrix().toCSV());
             
             // Afficher les résultats
             log.info("Évaluation terminée:");
             log.info("Précision: {}%", result.getAccuracy() * 100);
-            log.info("Matrice de confusion:\n{}", result.getConfusionMatrix());
             
             return result;
             
@@ -196,69 +197,4 @@ public abstract class BaseModelTester {
      * @return Tableau de caractéristiques
      */
     protected abstract double[] generateFeatureVectorForClass(int targetClass);
-    
-    /**
-     * Classe pour stocker les résultats des tests
-     */
-    public static class TestResult {
-        private double accuracy;
-        private double precision;
-        private double recall;
-        private double f1Score;
-        private String confusionMatrix;
-        
-        // Getters et setters
-        public double getAccuracy() {
-            return accuracy;
-        }
-        
-        public void setAccuracy(double accuracy) {
-            this.accuracy = accuracy;
-        }
-        
-        public double getPrecision() {
-            return precision;
-        }
-        
-        public void setPrecision(double precision) {
-            this.precision = precision;
-        }
-        
-        public double getRecall() {
-            return recall;
-        }
-        
-        public void setRecall(double recall) {
-            this.recall = recall;
-        }
-        
-        public double getF1Score() {
-            return f1Score;
-        }
-        
-        public void setF1Score(double f1Score) {
-            this.f1Score = f1Score;
-        }
-        
-        public String getConfusionMatrix() {
-            return confusionMatrix;
-        }
-        
-        public void setConfusionMatrix(String confusionMatrix) {
-            this.confusionMatrix = confusionMatrix;
-        }
-        
-        @Override
-        public String toString() {
-            StringBuilder sb = new StringBuilder();
-            sb.append("Résultats du test:\n");
-            sb.append(String.format("Précision: %.2f%%\n", accuracy * 100));
-            sb.append(String.format("Précision (precision): %.2f%%\n", precision * 100));
-            sb.append(String.format("Rappel (recall): %.2f%%\n", recall * 100));
-            sb.append(String.format("Score F1: %.2f%%\n", f1Score * 100));
-            sb.append("Matrice de confusion:\n").append(confusionMatrix);
-            
-            return sb.toString();
-        }
-    }
 }
