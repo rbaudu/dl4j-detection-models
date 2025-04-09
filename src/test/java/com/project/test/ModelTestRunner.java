@@ -87,7 +87,7 @@ public class ModelTestRunner {
         }
         
         // Tester le modèle
-        ModelTester.TestResult result = tester.testModel();
+        EvaluationResult result = tester.testModel();
         if (result == null) {
             log.error("Échec des tests du modèle de détection de présence");
             return false;
@@ -125,7 +125,7 @@ public class ModelTestRunner {
         }
         
         // Tester le modèle
-        ModelTester.TestResult result = tester.testModel();
+        EvaluationResult result = tester.testModel();
         if (result == null) {
             log.error("Échec des tests du modèle de détection d'activité");
             return false;
@@ -163,7 +163,7 @@ public class ModelTestRunner {
         }
         
         // Tester le modèle
-        ModelTester.TestResult result = tester.testModel();
+        EvaluationResult result = tester.testModel();
         if (result == null) {
             log.error("Échec des tests du modèle de détection de sons");
             return false;
