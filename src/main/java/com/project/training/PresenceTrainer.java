@@ -45,8 +45,8 @@ public class PresenceTrainer extends ModelTrainer {
      */
     public PresenceTrainer(Properties config) {
         super(config);
-        this.inputSize = Integer.parseInt(config.getProperty("presence.input.size", "100"));
-        this.numClasses = Integer.parseInt(config.getProperty("presence.num.classes", "2"));
+        this.inputSize = Integer.parseInt(config.getProperty("presence.model.input.size", "100"));
+        this.numClasses = Integer.parseInt(config.getProperty("presence.model.num.classes", "2"));
     }
 
     /**
@@ -98,7 +98,11 @@ public class PresenceTrainer extends ModelTrainer {
         label[labelIndex] = 1.0f;
         
         // Créer et retourner un DataSet
-        return new DataSet(org.nd4j.linalg.factory.Nd4j.create(input), org.nd4j.linalg.factory.Nd4j.create(label));
+        // Ajouter dimensionnalité pour éviter l'erreur "features rank must be in range 2 to 4 inclusive"
+        return new DataSet(
+            org.nd4j.linalg.factory.Nd4j.create(input).reshape(1, inputSize), // Ajout d'une dimension batch
+            org.nd4j.linalg.factory.Nd4j.create(label).reshape(1, numClasses)  // Ajout d'une dimension batch
+        );
     }
 
     /**
