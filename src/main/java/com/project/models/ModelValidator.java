@@ -1,8 +1,9 @@
 package com.project.models;
 
 import com.project.models.activity.ActivityModel;
-import com.project.models.presence.PresenceModel;
+import com.project.models.presence.YOLOPresenceModel;
 import com.project.models.sound.SoundModel;
+import com.project.models.sound.SpectrogramSoundModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,28 +29,28 @@ public class ModelValidator {
     }
     
     /**
-     * Valide le modèle de détection de présence.
+     * Valide le modèle YOLO de détection de présence.
      *
      * @return true si le modèle est valide, false sinon
      * @throws IOException si une erreur survient lors de la validation
      */
     public boolean validatePresenceModel() throws IOException {
-        log.info("Validation du modèle de détection de présence");
+        log.info("Validation du modèle YOLO de détection de présence");
         
         try {
-            PresenceModel model = new PresenceModel(config);
+            YOLOPresenceModel model = new YOLOPresenceModel(config);
             model.loadDefaultModel();
             
             // Vérifier que le modèle est bien chargé
-            if (model.getNetwork() != null || model.getGraphNetwork() != null) {
-                log.info("Le modèle de détection de présence a été chargé avec succès");
+            if (model.getYoloNetwork() != null) {
+                log.info("Le modèle YOLO de détection de présence a été chargé avec succès");
                 return true;
             } else {
-                log.error("Le modèle de détection de présence n'a pas pu être chargé correctement");
+                log.error("Le modèle YOLO de détection de présence n'a pas pu être chargé correctement");
                 return false;
             }
         } catch (Exception e) {
-            log.error("Erreur lors de la validation du modèle de détection de présence", e);
+            log.error("Erreur lors de la validation du modèle YOLO de détection de présence", e);
             return false;
         }
     }
@@ -88,7 +89,23 @@ public class ModelValidator {
      * @throws IOException si une erreur survient lors de la validation
      */
     public boolean validateSoundModel() throws IOException {
-        log.info("Validation du modèle de détection de sons");
+        String soundModelType = config.getProperty("sound.model.type", "STANDARD");
+        
+        if ("SPECTROGRAM".equalsIgnoreCase(soundModelType)) {
+            return validateSpectrogramSoundModel();
+        } else {
+            return validateStandardSoundModel();
+        }
+    }
+    
+    /**
+     * Valide le modèle standard de détection de sons.
+     *
+     * @return true si le modèle est valide, false sinon
+     * @throws IOException si une erreur survient lors de la validation
+     */
+    private boolean validateStandardSoundModel() throws IOException {
+        log.info("Validation du modèle standard de détection de sons");
         
         try {
             SoundModel model = new SoundModel(config);
@@ -96,14 +113,41 @@ public class ModelValidator {
             
             // Vérifier que le modèle est bien chargé
             if (model.getNetwork() != null || model.getGraphNetwork() != null) {
-                log.info("Le modèle de détection de sons a été chargé avec succès");
+                log.info("Le modèle standard de détection de sons a été chargé avec succès");
                 return true;
             } else {
-                log.error("Le modèle de détection de sons n'a pas pu être chargé correctement");
+                log.error("Le modèle standard de détection de sons n'a pas pu être chargé correctement");
                 return false;
             }
         } catch (Exception e) {
-            log.error("Erreur lors de la validation du modèle de détection de sons", e);
+            log.error("Erreur lors de la validation du modèle standard de détection de sons", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Valide le modèle de détection de sons basé sur spectrogrammes.
+     *
+     * @return true si le modèle est valide, false sinon
+     * @throws IOException si une erreur survient lors de la validation
+     */
+    private boolean validateSpectrogramSoundModel() throws IOException {
+        log.info("Validation du modèle de détection de sons basé sur spectrogrammes");
+        
+        try {
+            SpectrogramSoundModel model = new SpectrogramSoundModel(config);
+            model.loadDefaultModel();
+            
+            // Vérifier que le modèle est bien chargé
+            if (model.getNetwork() != null) {
+                log.info("Le modèle de détection de sons basé sur spectrogrammes a été chargé avec succès");
+                return true;
+            } else {
+                log.error("Le modèle de détection de sons basé sur spectrogrammes n'a pas pu être chargé correctement");
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("Erreur lors de la validation du modèle de détection de sons basé sur spectrogrammes", e);
             return false;
         }
     }
