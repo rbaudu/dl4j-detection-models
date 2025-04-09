@@ -1,165 +1,147 @@
 package com.project.training;
 
-import com.project.common.utils.DataProcessor;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.dataset.DataSet;
-import org.nd4j.linalg.dataset.SplitTestAndTrain;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
+import org.nd4j.linalg.dataset.api.iterator.TestDataSetIterator;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.Properties;
+import java.util.Arrays;
 
-/**
- * Classe abstraite de base pour l'entraînement des modèles.
- * Définit le flux de travail général pour l'entraînement tout en laissant les détails
- * spécifiques aux sous-classes.
- */
-public abstract class ModelTrainer {
-    private static final Logger log = LoggerFactory.getLogger(ModelTrainer.class);
+import com.project.common.utils.ModelUtils;
+
+public class ModelTrainer {
+
+    protected MultiLayerNetwork model;
+    protected int batchSize;
+    protected int numEpochs;
+    protected String modelOutputPath;
     
-    protected final Properties config;
-    protected final int batchSize;
-    protected final int numEpochs;
-    protected final double trainTestSplit;
-    
-    /**
-     * Constructeur avec configuration.
-     *
-     * @param config Propriétés de configuration
-     */
-    public ModelTrainer(Properties config) {
-        this.config = config;
-        this.batchSize = Integer.parseInt(config.getProperty("training.batch.size", "32"));
-        this.numEpochs = Integer.parseInt(config.getProperty("training.epochs", "100"));
-        this.trainTestSplit = Double.parseDouble(config.getProperty("training.train.test.split", "0.8"));
+    public ModelTrainer(int batchSize, int numEpochs, String modelOutputPath) {
+        this.batchSize = batchSize;
+        this.numEpochs = numEpochs;
+        this.modelOutputPath = modelOutputPath;
     }
     
     /**
-     * Méthode principale pour lancer l'entraînement.
-     * Coordonne le processus d'entraînement complet.
-     *
-     * @throws IOException en cas d'erreur lors de l'entraînement
+     * Initialise le modèle à utiliser pour l'entraînement
+     * @param numInputs Nombre d'entrées
+     * @param numOutputs Nombre de sorties (classes)
      */
-    public void train() throws IOException {
-        log.info("Démarrage de l'entraînement du modèle avec {} époques", numEpochs);
-        
-        // Préparer les données
-        DataSet dataset = prepareData();
-        if (dataset == null || dataset.isEmpty()) {
-            throw new IOException("Impossible de préparer les données d'entraînement");
-        }
-        
-        log.info("Données préparées: {} exemples", dataset.numExamples());
-        
-        // Diviser en ensembles d'entraînement et de test
-        SplitTestAndTrain testAndTrain = dataset.splitTestAndTrain(trainTestSplit);
-        DataSet trainingData = testAndTrain.getTrain();
-        DataSet testData = testAndTrain.getTest();
-        
-        log.info("Division des données: {} exemples d'entraînement, {} exemples de test",
-                trainingData.numExamples(), testData.numExamples());
-        
-        // Obtenir et configurer le modèle
-        MultiLayerNetwork model = getModel();
-        if (model == null) {
-            throw new IllegalStateException("Le modèle n'est pas initialisé");
-        }
-        
-        // Ajouter des listeners pour suivre la progression
+    public void initializeModel(int numInputs, int numOutputs) {
+        model = ModelUtils.createSimpleNetwork(numInputs, numOutputs);
         model.setListeners(new ScoreIterationListener(10));
+    }
+    
+    /**
+     * Entraîne le modèle avec les données fournies
+     * @param trainData Données d'entraînement
+     * @param testData Données de test
+     * @throws IOException Si une erreur survient lors de la sauvegarde du modèle
+     */
+    public void train(DataSet trainData, DataSet testData) throws IOException {
+        if (model == null) {
+            throw new IllegalStateException("Le modèle doit être initialisé avant l'entraînement");
+        }
         
-        // Entraîner le modèle
-        log.info("Début de l'entraînement pour {} époques avec une taille de batch de {}", 
-                numEpochs, batchSize);
+        // Créer des itérateurs pour les données d'entraînement et de test
+        DataSetIterator trainIterator = new TestDataSetIterator(trainData, batchSize);
+        DataSetIterator testIterator = new TestDataSetIterator(testData, batchSize);
+        
+        System.out.println("Début de l'entraînement...");
         
         for (int i = 0; i < numEpochs; i++) {
-            model.fit(trainingData);
+            model.fit(trainIterator);
             
-            // Évaluer périodiquement
-            if ((i + 1) % 10 == 0 || i == numEpochs - 1) {
-                log.info("Époque {} terminée", i + 1);
-                evaluateModel(model, testData);
-                
-                // Sauvegarder le checkpoint
-                if ((i + 1) % 20 == 0) {
-                    saveCheckpoint(model, i + 1);
-                }
-            }
+            // Évaluer le modèle sur les données de test après chaque époque
+            Evaluation evaluation = model.evaluate(testIterator);
+            System.out.println("Époque " + (i + 1) + "/" + numEpochs);
+            System.out.println(evaluation.stats());
+            
+            // Réinitialiser les itérateurs pour la prochaine époque
+            trainIterator.reset();
+            testIterator.reset();
         }
         
-        log.info("Entraînement terminé");
+        System.out.println("Entraînement terminé");
         
-        // Évaluation finale
-        log.info("Évaluation finale du modèle");
-        evaluateModel(model, testData);
-        
-        // Sauvegarder le modèle final
-        saveModel(model);
-        
-        log.info("Modèle sauvegardé et prêt à être utilisé");
+        // Sauvegarder le modèle
+        saveModel();
     }
     
     /**
-     * Prépare les données pour l'entraînement.
-     * À implémenter par les sous-classes pour charger et prétraiter les données.
-     *
-     * @return DataSet contenant les données préparées
-     * @throws IOException en cas d'erreur lors de la préparation des données
+     * Entraîne le modèle avec les données fournies
+     * @param trainIterator Itérateur pour les données d'entraînement
+     * @param testIterator Itérateur pour les données de test
+     * @throws IOException Si une erreur survient lors de la sauvegarde du modèle
      */
-    protected abstract DataSet prepareData() throws IOException;
+    public void train(DataSetIterator trainIterator, DataSetIterator testIterator) throws IOException {
+        if (model == null) {
+            throw new IllegalStateException("Le modèle doit être initialisé avant l'entraînement");
+        }
+        
+        System.out.println("Début de l'entraînement...");
+        
+        for (int i = 0; i < numEpochs; i++) {
+            model.fit(trainIterator);
+            
+            // Évaluer le modèle sur les données de test après chaque époque
+            Evaluation evaluation = model.evaluate(testIterator);
+            System.out.println("Époque " + (i + 1) + "/" + numEpochs);
+            System.out.println(evaluation.stats());
+            
+            // Réinitialiser les itérateurs pour la prochaine époque
+            trainIterator.reset();
+            testIterator.reset();
+        }
+        
+        System.out.println("Entraînement terminé");
+        
+        // Sauvegarder le modèle
+        saveModel();
+    }
     
     /**
-     * Obtient le modèle à entraîner.
-     * À implémenter par les sous-classes pour fournir le modèle spécifique.
-     *
-     * @return Le modèle neuronal à entraîner
-     */
-    protected abstract MultiLayerNetwork getModel();
-    
-    /**
-     * Sauvegarde le modèle dans son emplacement par défaut.
-     * À implémenter par les sous-classes pour la sauvegarde spécifique au modèle.
-     *
-     * @param model Le modèle entraîné à sauvegarder
-     * @throws IOException en cas d'erreur lors de la sauvegarde
-     */
-    protected abstract void saveModel(MultiLayerNetwork model) throws IOException;
-    
-    /**
-     * Sauvegarde un checkpoint du modèle pendant l'entraînement.
-     *
-     * @param model Le modèle à l'état actuel
-     * @param epoch Numéro de l'époque actuelle
-     * @throws IOException en cas d'erreur lors de la sauvegarde
-     */
-    protected abstract void saveCheckpoint(MultiLayerNetwork model, int epoch) throws IOException;
-    
-    /**
-     * Évalue le modèle sur les données de test.
-     *
-     * @param model Le modèle à évaluer
+     * Évalue le modèle sur un ensemble de données
      * @param testData Données de test
+     * @return Les statistiques d'évaluation
      */
-    protected void evaluateModel(MultiLayerNetwork model, DataSet testData) {
-        Evaluation eval = model.evaluate(testData);
-        log.info("Résultats de l'évaluation:\n{}", eval.stats());
+    public String evaluate(DataSet testData) {
+        if (model == null) {
+            throw new IllegalStateException("Le modèle doit être initialisé avant l'évaluation");
+        }
+        
+        // Créer un itérateur pour les données de test
+        DataSetIterator testIterator = new TestDataSetIterator(testData, batchSize);
+        
+        // Évaluer le modèle
+        Evaluation evaluation = model.evaluate(testIterator);
+        
+        return evaluation.stats();
     }
     
     /**
-     * Crée les répertoires nécessaires s'ils n'existent pas.
-     *
-     * @param modelDir Répertoire principal du modèle
-     * @throws IOException en cas d'erreur lors de la création des répertoires
+     * Sauvegarde le modèle dans le chemin spécifié
+     * @throws IOException Si une erreur survient lors de la sauvegarde
      */
-    protected void createDirectories(String modelDir) throws IOException {
-        // Créer le répertoire principal du modèle
-        DataProcessor.ensureDirectoryExists(modelDir);
+    public void saveModel() throws IOException {
+        if (model == null) {
+            throw new IllegalStateException("Le modèle doit être initialisé avant la sauvegarde");
+        }
         
-        // Créer le répertoire des checkpoints
-        DataProcessor.ensureDirectoryExists(modelDir + "/checkpoints");
+        ModelUtils.saveModel(model, modelOutputPath, true);
+        System.out.println("Modèle sauvegardé à " + modelOutputPath);
+    }
+    
+    /**
+     * Charge un modèle existant
+     * @param modelPath Chemin du modèle à charger
+     * @throws IOException Si une erreur survient lors du chargement
+     */
+    public void loadModel(String modelPath) throws IOException {
+        model = ModelUtils.loadModel(modelPath);
+        System.out.println("Modèle chargé depuis " + modelPath);
     }
 }
