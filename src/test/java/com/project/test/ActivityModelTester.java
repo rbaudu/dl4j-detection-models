@@ -39,9 +39,9 @@ public class ActivityModelTester extends BaseModelTester implements ModelTester 
         return features;
     }
     
-    @Override
+/*    @Override
     protected DataSetIterator createTestDataIterator() throws IOException {
         // Utiliser la méthode de génération de données synthétiques de BaseModelTester
         return new org.nd4j.linalg.dataset.api.iterator.TestDataSetIterator(generateTestData(), batchSize);
-    }
+    }*/
 }

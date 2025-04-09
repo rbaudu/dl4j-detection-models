@@ -69,7 +69,7 @@ public abstract class AbstractModelTester implements ModelTester {
             result.setF1Score(eval.f1());
             
             // Ajouter les précisions par classe
-            int numClasses = eval.numClasses();
+            int numClasses = numClasses(eval);
             for (int i = 0; i < numClasses; i++) {
                 String label = String.valueOf(i); // Utiliser l'index comme nom de classe
                 
@@ -117,6 +117,14 @@ public abstract class AbstractModelTester implements ModelTester {
             return false;
         }
     }
+    
+    protected int numClasses(Evaluation eval){
+        if(eval.getLabelsList() != null){
+            return eval.getLabelsList().size();
+        }
+        return eval.getConfusion().getClasses().size();
+    }
+
     
     /**
      * Crée un DataSetIterator pour les données de test
