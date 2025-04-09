@@ -72,6 +72,34 @@ public class ActivityModel {
     }
     
     /**
+     * Charge le modèle par défaut spécifié dans la configuration.
+     * S'il n'existe pas, initialise un nouveau modèle.
+     *
+     * @throws IOException Si une erreur survient lors du chargement
+     */
+    public void loadDefaultModel() throws IOException {
+        String modelPath = config.getProperty("activity.model.path", "models/activity_model.zip");
+        File modelFile = new File(modelPath);
+        
+        if (modelFile.exists()) {
+            log.info("Chargement du modèle de détection d'activité par défaut depuis {}", modelPath);
+            loadModel(modelPath);
+        } else {
+            log.warn("Modèle par défaut non trouvé à {}, initialisation d'un nouveau modèle", modelPath);
+            initNewModel();
+            
+            // Créer le répertoire parent
+            File parentDir = modelFile.getParentFile();
+            if (parentDir != null && !parentDir.exists()) {
+                parentDir.mkdirs();
+            }
+            
+            // Sauvegarder le modèle nouvellement créé
+            saveModel(modelPath);
+        }
+    }
+    
+    /**
      * Charge un modèle existant à partir d'un fichier.
      *
      * @param modelPath Chemin du fichier modèle
