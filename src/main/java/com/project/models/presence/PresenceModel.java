@@ -1,9 +1,8 @@
 package com.project.models.presence;
 
 import com.project.common.utils.ModelUtils;
+import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.factory.Nd4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,140 +11,174 @@ import java.io.IOException;
 import java.util.Properties;
 
 /**
- * Modèle de détection de présence.
- * Cette classe encapsule toute la logique spécifique au modèle de détection de présence.
+ * Modèle pour la détection de présence.
+ * Ce modèle permet de classifier si une personne est présente dans les données captées.
  */
 public class PresenceModel {
     private static final Logger log = LoggerFactory.getLogger(PresenceModel.class);
     
-    private MultiLayerNetwork network;
     private final Properties config;
-    private final String modelName;
-    private final String modelDir;
+    private final int inputSize;
+    private final int numClasses;
+    private MultiLayerNetwork network;
+    private ComputationGraph graphNetwork;
     
     /**
      * Constructeur avec configuration.
-     * 
+     *
      * @param config Propriétés de configuration
      */
     public PresenceModel(Properties config) {
         this.config = config;
-        this.modelName = config.getProperty("presence.model.name", "presence_model");
-        this.modelDir = config.getProperty("presence.model.dir", "models/presence");
+        this.inputSize = Integer.parseInt(config.getProperty("presence.model.input.size", "100"));
+        this.numClasses = Integer.parseInt(config.getProperty("presence.model.num.classes", "2"));
     }
     
     /**
-     * Initialise un nouveau modèle basé sur la configuration.
+     * Initialise un nouveau modèle de détection de présence.
      */
     public void initNewModel() {
-        log.info("Initialisation d'un nouveau modèle de détection de présence");
-        this.network = ModelUtils.createModelFromConfig(config, "presence");
-        this.network.init();
-        log.info("Modèle initialisé avec succès");
+        log.info("Initialisation d'un nouveau modèle pour la détection de présence");
+        
+        // Utilisation d'un modèle simple pour la détection de présence
+        network = ModelUtils.createModelFromConfig(config, "presence");
+        graphNetwork = null;
     }
     
     /**
-     * Charge un modèle existant depuis le disque.
-     * 
-     * @param modelPath Chemin vers le fichier du modèle
-     * @throws IOException en cas d'erreur lors du chargement
+     * Charge le modèle par défaut spécifié dans la configuration.
+     * S'il n'existe pas, initialise un nouveau modèle.
+     *
+     * @throws IOException Si une erreur survient lors du chargement
+     */
+    public void loadDefaultModel() throws IOException {
+        String modelPath = config.getProperty("presence.model.path", "models/presence_model.zip");
+        File modelFile = new File(modelPath);
+        
+        if (modelFile.exists()) {
+            log.info("Chargement du modèle de détection de présence par défaut depuis {}", modelPath);
+            loadModel(modelPath);
+        } else {
+            log.warn("Modèle par défaut non trouvé à {}, initialisation d'un nouveau modèle", modelPath);
+            initNewModel();
+            
+            // Créer le répertoire parent
+            File parentDir = modelFile.getParentFile();
+            if (parentDir != null && !parentDir.exists()) {
+                parentDir.mkdirs();
+            }
+            
+            // Sauvegarder le modèle nouvellement créé
+            saveModel(modelPath);
+        }
+    }
+    
+    /**
+     * Charge un modèle existant à partir d'un fichier.
+     *
+     * @param modelPath Chemin du fichier modèle
+     * @throws IOException Si une erreur survient lors du chargement
      */
     public void loadModel(String modelPath) throws IOException {
         log.info("Chargement du modèle de détection de présence depuis {}", modelPath);
-        this.network = ModelUtils.loadModel(modelPath);
-        log.info("Modèle chargé avec succès");
+        
+        try {
+            network = ModelUtils.loadModel(modelPath);
+            log.info("Modèle MultiLayerNetwork chargé avec succès");
+            graphNetwork = null;
+        } catch (Exception e) {
+            log.warn("Échec du chargement comme MultiLayerNetwork, tentative de chargement comme ComputationGraph", e);
+            try {
+                // Tenter de charger comme ComputationGraph
+                graphNetwork = org.deeplearning4j.util.ModelSerializer.restoreComputationGraph(modelPath);
+                log.info("Modèle ComputationGraph chargé avec succès");
+            } catch (Exception ex) {
+                throw new IOException("Impossible de charger le modèle", ex);
+            }
+        }
     }
     
     /**
-     * Sauvegarde le modèle sur le disque.
-     * 
+     * Sauvegarde le modèle dans un fichier.
+     *
      * @param modelPath Chemin où sauvegarder le modèle
-     * @throws IOException en cas d'erreur lors de la sauvegarde
+     * @throws IOException Si une erreur survient lors de la sauvegarde
      */
     public void saveModel(String modelPath) throws IOException {
-        if (this.network == null) {
-            throw new IllegalStateException("Le modèle n'est pas initialisé ou chargé");
+        log.info("Sauvegarde du modèle de détection de présence vers {}", modelPath);
+        
+        // Créer le répertoire parent si nécessaire
+        File modelFile = new File(modelPath);
+        File parentDir = modelFile.getParentFile();
+        if (parentDir != null && !parentDir.exists()) {
+            parentDir.mkdirs();
         }
         
-        log.info("Sauvegarde du modèle de détection de présence vers {}", modelPath);
-        ModelUtils.saveModel(this.network, modelPath);
+        if (network != null) {
+            // Sauvegarder comme MultiLayerNetwork
+            ModelUtils.saveModel(network, modelPath, true);
+            log.info("Modèle MultiLayerNetwork sauvegardé avec succès");
+        } else if (graphNetwork != null) {
+            // Sauvegarder comme ComputationGraph
+            org.deeplearning4j.util.ModelSerializer.writeModel(graphNetwork, modelFile, true);
+            log.info("Modèle ComputationGraph sauvegardé avec succès");
+        } else {
+            throw new IllegalStateException("Aucun modèle à sauvegarder");
+        }
     }
     
     /**
-     * Exporte le modèle au format DL4J pour être utilisé dans d'autres applications.
-     * 
-     * @param exportPath Chemin vers lequel exporter le modèle
-     * @throws IOException en cas d'erreur lors de l'exportation
+     * Exporte le modèle au format DL4J.
+     *
+     * @param exportPath Chemin où exporter le modèle
+     * @throws IOException Si une erreur survient lors de l'export
      */
     public void exportModel(String exportPath) throws IOException {
-        if (this.network == null) {
-            throw new IllegalStateException("Le modèle n'est pas initialisé ou chargé");
-        }
-        
-        boolean includePreprocessing = Boolean.parseBoolean(
-                config.getProperty("export.include.preprocessing", "true"));
-        int compressionLevel = Integer.parseInt(
-                config.getProperty("export.zip.compression.level", "9"));
-        
         log.info("Exportation du modèle de détection de présence vers {}", exportPath);
-        ModelUtils.exportModelForDL4J(
-                this.network, exportPath, includePreprocessing, compressionLevel);
-        log.info("Modèle exporté avec succès");
-    }
-    
-    /**
-     * Prédit la présence à partir des données d'entrée.
-     * 
-     * @param input Données d'entrée
-     * @return Tableau de probabilités [probAbsence, probPresence]
-     */
-    public double[] predict(double[] input) {
-        if (this.network == null) {
-            throw new IllegalStateException("Le modèle n'est pas initialisé ou chargé");
+        
+        int modelVersion = Integer.parseInt(config.getProperty("export.model.version", "1"));
+        boolean includeUpdater = Boolean.parseBoolean(config.getProperty("export.model.include.updater", "false"));
+        
+        if (network != null) {
+            // Exporter comme MultiLayerNetwork
+            ModelUtils.exportModelForDL4J(network, exportPath, includeUpdater, modelVersion);
+            log.info("Modèle MultiLayerNetwork exporté avec succès");
+        } else if (graphNetwork != null) {
+            // Exporter comme ComputationGraph
+            File modelFile = new File(exportPath);
+            org.deeplearning4j.util.ModelSerializer.writeModel(graphNetwork, modelFile, includeUpdater);
+            log.info("Modèle ComputationGraph exporté avec succès");
+        } else {
+            throw new IllegalStateException("Aucun modèle à exporter");
         }
-        
-        // Convertir l'entrée en INDArray
-        INDArray inputArray = Nd4j.create(input);
-        
-        // Prédire
-        INDArray output = this.network.output(inputArray);
-        
-        // Convertir la sortie en tableau Java
-        return output.toDoubleVector();
     }
     
     /**
-     * Obtient le réseau neuronal sous-jacent.
-     * 
-     * @return Le réseau neuronal
+     * Obtient le réseau entraîné.
+     * Note: Si le modèle utilise un ComputationGraph, null est retourné.
+     *
+     * @return Le réseau entraîné ou null si un ComputationGraph est utilisé
      */
     public MultiLayerNetwork getNetwork() {
         return network;
     }
     
     /**
-     * Obtient le chemin par défaut du modèle sauvegardé.
-     * 
-     * @return Chemin par défaut du modèle
+     * Obtient le graphe de calcul entraîné.
+     * Note: Si le modèle utilise un MultiLayerNetwork, null est retourné.
+     *
+     * @return Le graphe de calcul entraîné ou null si un MultiLayerNetwork est utilisé
      */
-    public String getDefaultModelPath() {
-        return new File(modelDir, modelName + ".zip").getPath();
+    public ComputationGraph getGraphNetwork() {
+        return graphNetwork;
     }
     
     /**
-     * Charge le modèle à partir du chemin par défaut.
-     * 
-     * @throws IOException en cas d'erreur lors du chargement
+     * Indique si le modèle est basé sur un ComputationGraph ou un MultiLayerNetwork.
+     *
+     * @return true si le modèle est basé sur un ComputationGraph
      */
-    public void loadDefaultModel() throws IOException {
-        String modelPath = getDefaultModelPath();
-        File modelFile = new File(modelPath);
-        
-        if (!modelFile.exists()) {
-            log.warn("Modèle par défaut non trouvé à {}, initialisation d'un nouveau modèle", modelPath);
-            initNewModel();
-        } else {
-            loadModel(modelPath);
-        }
+    public boolean isGraphBased() {
+        return graphNetwork != null;
     }
 }
