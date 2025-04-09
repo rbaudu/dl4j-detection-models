@@ -21,12 +21,12 @@ import java.util.Properties;
 public class ModelUtils {
 
     /**
-     * Crée un modèle de réseau de neurones simple pour la classification
+     * Crée une configuration de réseau de neurones simple pour la classification
      * @param numInputs Nombre d'entrées
      * @param numOutputs Nombre de sorties (classes)
-     * @return Un réseau de neurones configuré
+     * @return Une configuration de réseau de neurones
      */
-    public static MultiLayerNetwork createSimpleNetwork(int numInputs, int numOutputs) {
+    public static MultiLayerConfiguration createSimpleNetworkConfiguration(int numInputs, int numOutputs) {
         // Configuration du réseau
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                 .seed(123)
@@ -48,6 +48,19 @@ public class ModelUtils {
                         .activation(Activation.SOFTMAX)
                         .build())
                 .build();
+        
+        return conf;
+    }
+
+    /**
+     * Crée un modèle de réseau de neurones simple pour la classification
+     * @param numInputs Nombre d'entrées
+     * @param numOutputs Nombre de sorties (classes)
+     * @return Un réseau de neurones configuré
+     */
+    public static MultiLayerNetwork createSimpleNetwork(int numInputs, int numOutputs) {
+        // Utiliser la méthode de création de configuration
+        MultiLayerConfiguration conf = createSimpleNetworkConfiguration(numInputs, numOutputs);
         
         // Créer et initialiser le réseau
         MultiLayerNetwork model = new MultiLayerNetwork(conf);
