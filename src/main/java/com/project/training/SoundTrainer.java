@@ -4,6 +4,7 @@ import org.datavec.api.records.reader.RecordReader;
 import org.datavec.api.records.reader.impl.csv.CSVRecordReader;
 import org.datavec.api.split.FileSplit;
 import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
@@ -14,11 +15,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.Random;
 
 import javax.sound.sampled.UnsupportedAudioFileException;
 
 import com.project.common.utils.AudioUtils;
+import com.project.common.utils.ModelUtils;
 
 public class SoundTrainer extends ModelTrainer {
 
@@ -26,10 +29,31 @@ public class SoundTrainer extends ModelTrainer {
     private int numClasses;
     private Random rng;
 
+    /**
+     * Constructeur avec paramètres individuels
+     * 
+     * @param batchSize Taille du lot pour l'entraînement
+     * @param numEpochs Nombre d'époques d'entraînement
+     * @param modelOutputPath Chemin où sauvegarder le modèle
+     * @param featureSize Taille des caractéristiques audio
+     * @param numClasses Nombre de classes de sortie
+     */
     public SoundTrainer(int batchSize, int numEpochs, String modelOutputPath, int featureSize, int numClasses) {
         super(batchSize, numEpochs, modelOutputPath);
         this.featureSize = featureSize;
         this.numClasses = numClasses;
+        this.rng = new Random(42);
+    }
+    
+    /**
+     * Constructeur avec configuration
+     * 
+     * @param config Propriétés de configuration
+     */
+    public SoundTrainer(Properties config) {
+        super(config);
+        this.featureSize = Integer.parseInt(config.getProperty("sound.feature.size", "128"));
+        this.numClasses = Integer.parseInt(config.getProperty("sound.num.classes", "3"));
         this.rng = new Random(42);
     }
 
@@ -79,13 +103,7 @@ public class SoundTrainer extends ModelTrainer {
         allData.shuffle();
 
         // Diviser en ensembles d'entraînement et de test
-        int trainSize = (int) (allData.numExamples() * trainTestRatio);
-        int testSize = allData.numExamples() - trainSize;
-
-        DataSet trainData = allData.get(0, trainSize);
-        DataSet testData = allData.get(trainSize, testSize);
-
-        return new DataSet[] { trainData, testData };
+        return splitDataset(allData, trainTestRatio);
     }
 
     /**
@@ -103,32 +121,29 @@ public class SoundTrainer extends ModelTrainer {
         RecordReader labelsReader = new CSVRecordReader();
         labelsReader.initialize(new FileSplit(new File(labelsFile)));
 
-        // Créer un itérateur pour les données
-        DataSetIterator iterator = new RecordReaderMultiDataSetIterator.Builder(batchSize)
-                .addReader("features", featuresReader)
-                .addReader("labels", labelsReader)
-                .addInput("features")
-                .addOutputOneHot("labels", 0, numClasses)
-                .build();
+        // Créer un DataSetIterator pour chaque lecteur
+        DataSetIterator featuresIterator = new RecordReaderDataSetIterator(featuresReader, batchSize);
+        DataSetIterator labelsIterator = new RecordReaderDataSetIterator(labelsReader, batchSize, 0, numClasses);
 
         // Collecter toutes les données
-        List<DataSet> dataList = new ArrayList<>();
-        while (iterator.hasNext()) {
-            dataList.add(iterator.next());
+        List<DataSet> featureDatasets = new ArrayList<>();
+        List<DataSet> labelDatasets = new ArrayList<>();
+        
+        while (featuresIterator.hasNext() && labelsIterator.hasNext()) {
+            featureDatasets.add(featuresIterator.next());
+            labelDatasets.add(labelsIterator.next());
         }
-
-        // Fusionner tous les mini-lots en un seul DataSet
-        DataSet allData = DataSet.merge(dataList);
+        
+        // Fusionner les caractéristiques et les étiquettes
+        DataSet allFeatures = DataSet.merge(featureDatasets);
+        DataSet allLabels = DataSet.merge(labelDatasets);
+        
+        // Créer un DataSet complet
+        DataSet allData = new DataSet(allFeatures.getFeatures(), allLabels.getLabels());
         allData.shuffle();
 
         // Diviser en ensembles d'entraînement et de test
-        int trainSize = (int) (allData.numExamples() * trainTestRatio);
-        int testSize = allData.numExamples() - trainSize;
-
-        DataSet trainData = allData.get(0, trainSize);
-        DataSet testData = allData.get(trainSize, testSize);
-
-        return new DataSet[] { trainData, testData };
+        return splitDataset(allData, trainTestRatio);
     }
 
     /**
@@ -174,67 +189,52 @@ public class SoundTrainer extends ModelTrainer {
         
         return 0;  // Classe par défaut
     }
-}
-
-/**
- * Classe utilitaire pour créer un DataSetIterator à partir de plusieurs RecordReaders
- */
-class RecordReaderMultiDataSetIterator {
     
-    public static class Builder {
-        private int batchSize;
-        private final List<RecordReader> readers = new ArrayList<>();
-        private final List<String> readerNames = new ArrayList<>();
-        private final List<String> inputNames = new ArrayList<>();
-        private final List<String> outputNames = new ArrayList<>();
-        private final List<Integer> outputLabelIndexes = new ArrayList<>();
-        private final List<Integer> outputNumClasses = new ArrayList<>();
-        
-        public Builder(int batchSize) {
-            this.batchSize = batchSize;
-        }
-        
-        public Builder addReader(String name, RecordReader reader) {
-            readers.add(reader);
-            readerNames.add(name);
-            return this;
-        }
-        
-        public Builder addInput(String readerName) {
-            inputNames.add(readerName);
-            return this;
-        }
-        
-        public Builder addOutputOneHot(String readerName, int labelIndex, int numClasses) {
-            outputNames.add(readerName);
-            outputLabelIndexes.add(labelIndex);
-            outputNumClasses.add(numClasses);
-            return this;
-        }
-        
-        public DataSetIterator build() {
-            // Pour simplifier, nous supposons que nous n'avons qu'un seul input et un seul output
-            if (inputNames.size() != 1 || outputNames.size() != 1) {
-                throw new IllegalArgumentException("Cette implémentation ne supporte qu'un seul input et un seul output");
-            }
+    @Override
+    protected DataSet prepareData() throws IOException {
+        try {
+            // Utiliser le répertoire spécifié dans la configuration
+            String audioDir = config.getProperty("sound.data.dir", "data/audio");
             
-            String inputName = inputNames.get(0);
-            String outputName = outputNames.get(0);
-            int inputIdx = readerNames.indexOf(inputName);
-            int outputIdx = readerNames.indexOf(outputName);
+            // Préparer les données audio
+            DataSet[] datasets = prepareAudioData(audioDir, 0.8);
             
-            if (inputIdx == -1 || outputIdx == -1) {
-                throw new IllegalArgumentException("Noms de reader invalides");
-            }
-            
-            RecordReader inputReader = readers.get(inputIdx);
-            RecordReader outputReader = readers.get(outputIdx);
-            
-            int labelIndex = outputLabelIndexes.get(0);
-            int numClasses = outputNumClasses.get(0);
-            
-            // Créer un DataSetIterator en utilisant les RecordReaders
-            return new RecordReaderDataSetIterator(inputReader, outputReader, batchSize, labelIndex, numClasses);
+            // Retourner l'ensemble complet
+            return DataSet.merge(Arrays.asList(datasets));
+        } catch (UnsupportedAudioFileException e) {
+            throw new IOException("Erreur lors du traitement des fichiers audio", e);
         }
+    }
+    
+    @Override
+    protected MultiLayerNetwork getModel() {
+        MultiLayerNetwork network = ModelUtils.createSimpleNetwork(featureSize, numClasses);
+        return network;
+    }
+    
+    @Override
+    protected void saveModel(MultiLayerNetwork network) throws IOException {
+        String modelPath = config != null ? 
+            config.getProperty("sound.model.path", modelOutputPath) : 
+            modelOutputPath;
+        
+        ModelUtils.saveModel(network, modelPath, true);
+    }
+    
+    @Override
+    protected void saveCheckpoint(MultiLayerNetwork network, int epoch) throws IOException {
+        // Déterminer le chemin du checkpoint
+        String baseDir = config != null ? 
+            config.getProperty("sound.checkpoint.dir", "checkpoints/sound") : 
+            "checkpoints/sound";
+        
+        // Assurer que le répertoire existe
+        createDirectories(baseDir);
+        
+        // Créer le chemin complet
+        String checkpointPath = baseDir + "/sound_model_epoch_" + epoch + ".zip";
+        
+        // Sauvegarder le checkpoint
+        ModelUtils.saveModel(network, checkpointPath, true);
     }
 }
