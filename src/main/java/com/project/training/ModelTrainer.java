@@ -7,22 +7,47 @@ import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.iterator.TestDataSetIterator;
 
+import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.Properties;
 
 import com.project.common.utils.ModelUtils;
 
-public class ModelTrainer {
+/**
+ * Classe de base pour l'entraînement des modèles.
+ * Cette classe fournit les méthodes communes pour l'entraînement et l'évaluation des modèles.
+ */
+public abstract class ModelTrainer {
 
     protected MultiLayerNetwork model;
     protected int batchSize;
     protected int numEpochs;
     protected String modelOutputPath;
+    protected Properties config;
     
+    /**
+     * Constructeur avec paramètres individuels pour les modèles simples
+     * 
+     * @param batchSize Taille du lot pour l'entraînement
+     * @param numEpochs Nombre d'époques d'entraînement
+     * @param modelOutputPath Chemin où sauvegarder le modèle
+     */
     public ModelTrainer(int batchSize, int numEpochs, String modelOutputPath) {
         this.batchSize = batchSize;
         this.numEpochs = numEpochs;
         this.modelOutputPath = modelOutputPath;
+    }
+    
+    /**
+     * Constructeur avec configuration pour les modèles complexes
+     * 
+     * @param config Propriétés de configuration
+     */
+    public ModelTrainer(Properties config) {
+        this.config = config;
+        this.batchSize = Integer.parseInt(config.getProperty("training.batch.size", "32"));
+        this.numEpochs = Integer.parseInt(config.getProperty("training.epochs", "10"));
+        this.modelOutputPath = config.getProperty("model.output.path", "models/output/model.zip");
     }
     
     /**
@@ -63,12 +88,43 @@ public class ModelTrainer {
             // Réinitialiser les itérateurs pour la prochaine époque
             trainIterator.reset();
             testIterator.reset();
+            
+            // Sauvegarder un checkpoint
+            try {
+                saveCheckpoint(model, i+1);
+            } catch (IOException e) {
+                System.err.println("Erreur lors de la sauvegarde du checkpoint : " + e.getMessage());
+            }
         }
         
         System.out.println("Entraînement terminé");
         
-        // Sauvegarder le modèle
-        saveModel();
+        // Sauvegarder le modèle final
+        saveModel(model);
+    }
+    
+    /**
+     * Méthode principale d'entraînement à utiliser par les sous-classes
+     * @throws IOException Si une erreur survient
+     */
+    public void train() throws IOException {
+        // Préparer les données
+        DataSet data = prepareData();
+        if (data == null) {
+            throw new IOException("Échec de la préparation des données");
+        }
+        
+        // Obtenir le modèle
+        model = getModel();
+        if (model == null) {
+            throw new IOException("Échec de l'initialisation du modèle");
+        }
+        
+        // Diviser les données en ensembles d'entraînement et de test
+        DataSet[] splitData = splitData(data);
+        
+        // Entraîner le modèle
+        train(splitData[0], splitData[1]);
     }
     
     /**
@@ -95,12 +151,19 @@ public class ModelTrainer {
             // Réinitialiser les itérateurs pour la prochaine époque
             trainIterator.reset();
             testIterator.reset();
+            
+            // Sauvegarder un checkpoint
+            try {
+                saveCheckpoint(model, i+1);
+            } catch (IOException e) {
+                System.err.println("Erreur lors de la sauvegarde du checkpoint : " + e.getMessage());
+            }
         }
         
         System.out.println("Entraînement terminé");
         
-        // Sauvegarder le modèle
-        saveModel();
+        // Sauvegarder le modèle final
+        saveModel(model);
     }
     
     /**
@@ -131,8 +194,7 @@ public class ModelTrainer {
             throw new IllegalStateException("Le modèle doit être initialisé avant la sauvegarde");
         }
         
-        ModelUtils.saveModel(model, modelOutputPath, true);
-        System.out.println("Modèle sauvegardé à " + modelOutputPath);
+        saveModel(model);
     }
     
     /**
@@ -144,4 +206,79 @@ public class ModelTrainer {
         model = ModelUtils.loadModel(modelPath);
         System.out.println("Modèle chargé depuis " + modelPath);
     }
+    
+    /**
+     * Vérifie si un répertoire existe et le crée si nécessaire
+     * @param directory Chemin du répertoire
+     * @throws IOException Si une erreur survient lors de la création
+     */
+    protected void createDirectories(String directory) throws IOException {
+        File dir = new File(directory);
+        if (!dir.exists()) {
+            if (!dir.mkdirs()) {
+                throw new IOException("Impossible de créer le répertoire : " + directory);
+            }
+        }
+    }
+    
+    /**
+     * Divise les données en ensembles d'entraînement et de test
+     * @param data Données complètes
+     * @return Tableau avec [données d'entraînement, données de test]
+     */
+    protected DataSet[] splitData(DataSet data) {
+        double trainRatio = Double.parseDouble(config != null ? 
+            config.getProperty("training.train.ratio", "0.8") : "0.8");
+        
+        return splitDataset(data, trainRatio);
+    }
+    
+    /**
+     * Divise un dataset en ensembles d'entraînement et de test
+     * @param dataset Dataset complet
+     * @param trainRatio Ratio pour l'ensemble d'entraînement (0.0-1.0)
+     * @return Tableau avec [données d'entraînement, données de test]
+     */
+    protected DataSet[] splitDataset(DataSet dataset, double trainRatio) {
+        int numExamples = dataset.numExamples();
+        int trainSize = (int) (numExamples * trainRatio);
+        
+        dataset.shuffle();
+        
+        // Utiliser la méthode correcte pour extraire des parties du dataset
+        DataSet trainData = dataset.sample(trainSize);
+        DataSet testData = dataset.sample(numExamples - trainSize);
+        
+        return new DataSet[] { trainData, testData };
+    }
+    
+    // Méthodes abstraites à implémenter par les sous-classes
+    
+    /**
+     * Prépare les données pour l'entraînement
+     * @return Dataset contenant les données
+     * @throws IOException Si une erreur survient
+     */
+    protected abstract DataSet prepareData() throws IOException;
+    
+    /**
+     * Obtient le modèle à entraîner
+     * @return Le modèle initialisé
+     */
+    protected abstract MultiLayerNetwork getModel();
+    
+    /**
+     * Sauvegarde le modèle entraîné
+     * @param network Le modèle à sauvegarder
+     * @throws IOException Si une erreur survient
+     */
+    protected abstract void saveModel(MultiLayerNetwork network) throws IOException;
+    
+    /**
+     * Sauvegarde un checkpoint du modèle
+     * @param network Le modèle à sauvegarder
+     * @param epoch Numéro de l'époque
+     * @throws IOException Si une erreur survient
+     */
+    protected abstract void saveCheckpoint(MultiLayerNetwork network, int epoch) throws IOException;
 }
