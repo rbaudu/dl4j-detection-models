@@ -1,7 +1,9 @@
 package com.project;
 
 import com.project.common.config.ConfigLoader;
+import com.project.common.config.ConfigValidator;
 import com.project.common.utils.DataProcessor;
+import com.project.common.utils.LoggingUtils;
 import com.project.export.ActivityExporter;
 import com.project.export.PresenceExporter;
 import com.project.export.SoundExporter;
@@ -31,6 +33,12 @@ public class Application {
             Properties config = ConfigLoader.loadConfiguration();
             log.info("Configuration chargée avec succès");
             
+            // Valider la configuration
+            boolean configValid = ConfigValidator.validateConfig(config);
+            if (!configValid) {
+                log.warn("La configuration contient des erreurs, l'application pourrait ne pas fonctionner correctement");
+            }
+            
             if (args.length > 0) {
                 processArguments(args, config);
             } else {
@@ -54,15 +62,18 @@ public class Application {
                 
                 if ("YOLO".equalsIgnoreCase(presenceModelType)) {
                     log.info("Démarrage de l'entraînement du modèle YOLO de détection de présence");
+                    LoggingUtils.logPresenceTrainingParameters(config);
                     new YOLOPresenceTrainer(config).train();
                 } else {
                     log.info("Démarrage de l'entraînement du modèle standard de détection de présence");
+                    LoggingUtils.logPresenceTrainingParameters(config);
                     new PresenceTrainer(config).train();
                 }
                 break;
                 
             case "train-presence-yolo":
                 log.info("Démarrage de l'entraînement du modèle YOLO de détection de présence");
+                LoggingUtils.logPresenceTrainingParameters(config);
                 new YOLOPresenceTrainer(config).train();
                 break;
                 
@@ -74,14 +85,17 @@ public class Application {
                     log.info("Démarrage de l'entraînement du modèle VGG16 de détection d'activité");
                     // Forcer l'utilisation de VGG16
                     config.setProperty("activity.model.type", "VGG16");
+                    LoggingUtils.logActivityTrainingParameters(config);
                     new ActivityTrainer(config).train();
                 } else if ("RESNET".equalsIgnoreCase(activityModelType)) {
                     log.info("Démarrage de l'entraînement du modèle ResNet de détection d'activité");
                     // Forcer l'utilisation de ResNet
                     config.setProperty("activity.model.type", "RESNET");
+                    LoggingUtils.logActivityTrainingParameters(config);
                     new ActivityTrainer(config).train();
                 } else {
                     log.info("Démarrage de l'entraînement du modèle standard de détection d'activité");
+                    LoggingUtils.logActivityTrainingParameters(config);
                     new ActivityTrainer(config).train();
                 }
                 break;
@@ -90,6 +104,7 @@ public class Application {
                 log.info("Démarrage de l'entraînement du modèle VGG16 de détection d'activité");
                 // Forcer l'utilisation de VGG16
                 config.setProperty("activity.model.type", "VGG16");
+                LoggingUtils.logActivityTrainingParameters(config);
                 new ActivityTrainer(config).train();
                 break;
                 
@@ -97,6 +112,7 @@ public class Application {
                 log.info("Démarrage de l'entraînement du modèle ResNet de détection d'activité");
                 // Forcer l'utilisation de ResNet
                 config.setProperty("activity.model.type", "RESNET");
+                LoggingUtils.logActivityTrainingParameters(config);
                 new ActivityTrainer(config).train();
                 break;
                 
@@ -108,9 +124,11 @@ public class Application {
                     log.info("Démarrage de l'entraînement du modèle spectrogram de détection de sons");
                     // Forcer l'utilisation de Spectrogram
                     config.setProperty("sound.model.type", "SPECTROGRAM");
+                    LoggingUtils.logSoundTrainingParameters(config);
                     new SoundTrainer(config).train();
                 } else {
                     log.info("Démarrage de l'entraînement du modèle standard de détection de sons");
+                    LoggingUtils.logSoundTrainingParameters(config);
                     new SoundTrainer(config).train();
                 }
                 break;
@@ -119,6 +137,7 @@ public class Application {
                 log.info("Démarrage de l'entraînement du modèle spectrogram de détection de sons");
                 // Forcer l'utilisation de Spectrogram
                 config.setProperty("sound.model.type", "SPECTROGRAM");
+                LoggingUtils.logSoundTrainingParameters(config);
                 new SoundTrainer(config).train();
                 break;
                 
@@ -127,6 +146,8 @@ public class Application {
                 
                 // Entraînement du modèle de présence (YOLO ou standard)
                 String presenceType = config.getProperty("presence.model.type", "STANDARD");
+                log.info("Entraînement du modèle de présence (type: {})", presenceType);
+                LoggingUtils.logPresenceTrainingParameters(config);
                 if ("YOLO".equalsIgnoreCase(presenceType)) {
                     new YOLOPresenceTrainer(config).train();
                 } else {
@@ -135,11 +156,15 @@ public class Application {
                 
                 // Entraînement du modèle d'activité
                 String activityType = config.getProperty("activity.model.type", "STANDARD");
+                log.info("Entraînement du modèle d'activité (type: {})", activityType);
+                LoggingUtils.logActivityTrainingParameters(config);
                 // La classe ActivityTrainer devrait maintenant gérer tous les types de modèles
                 new ActivityTrainer(config).train();
                 
                 // Entraînement du modèle de son
                 String soundType = config.getProperty("sound.model.type", "STANDARD");
+                log.info("Entraînement du modèle de son (type: {})", soundType);
+                LoggingUtils.logSoundTrainingParameters(config);
                 // La classe SoundTrainer devrait maintenant gérer tous les types de modèles
                 new SoundTrainer(config).train();
                 break;
