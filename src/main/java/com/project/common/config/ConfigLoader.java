@@ -25,7 +25,7 @@ public class ConfigLoader {
     
     /**
      * Charge la configuration depuis les fichiers de propriétés.
-     * @return Properties contenant la configuration
+     * @return Properties contenant la configuration avec toutes les variables résolues
      * @throws IOException si le chargement échoue
      */
     public static Properties loadConfiguration() throws IOException {
@@ -37,6 +37,11 @@ public class ConfigLoader {
             try (FileInputStream fis = new FileInputStream(configFile)) {
                 properties.load(fis);
                 log.info("Configuration chargée depuis {}", CONFIG_FILE_PATH);
+                
+                // Résoudre les références dans les propriétés
+                properties = PropertyResolver.resolveProperties(properties);
+                log.info("Références dans les propriétés résolues avec succès");
+                
                 return properties;
             } catch (IOException e) {
                 log.warn("Impossible de charger la configuration depuis {}, utilisation de la configuration par défaut", 
@@ -52,6 +57,10 @@ public class ConfigLoader {
             if (is != null) {
                 properties.load(is);
                 log.info("Configuration par défaut chargée depuis les ressources");
+                
+                // Résoudre les références dans les propriétés
+                properties = PropertyResolver.resolveProperties(properties);
+                log.info("Références dans les propriétés résolues avec succès");
             } else {
                 log.error("Impossible de trouver la configuration par défaut dans les ressources");
                 throw new IOException("Configuration par défaut introuvable");
@@ -62,6 +71,37 @@ public class ConfigLoader {
     }
     
     /**
+     * Charge la configuration depuis un chemin spécifique.
+     * @param configPath Chemin vers le fichier de configuration
+     * @return Properties contenant la configuration avec toutes les variables résolues
+     * @throws IOException si le chargement échoue
+     */
+    public static Properties loadConfiguration(String configPath) throws IOException {
+        Properties properties = new Properties();
+        
+        // Charger le fichier de configuration spécifié
+        File configFile = new File(configPath);
+        if (configFile.exists() && configFile.isFile()) {
+            try (FileInputStream fis = new FileInputStream(configFile)) {
+                properties.load(fis);
+                log.info("Configuration chargée depuis {}", configPath);
+                
+                // Résoudre les références dans les propriétés
+                properties = PropertyResolver.resolveProperties(properties);
+                log.info("Références dans les propriétés résolues avec succès");
+                
+                return properties;
+            } catch (IOException e) {
+                log.error("Impossible de charger la configuration depuis {}", configPath, e);
+                throw e;
+            }
+        } else {
+            log.error("Fichier de configuration {} non trouvé", configPath);
+            throw new IOException("Fichier de configuration non trouvé: " + configPath);
+        }
+    }
+    
+    /**
      * Récupère une valeur de configuration comme String.
      * @param properties Propriétés chargées
      * @param key Clé de la propriété
@@ -69,7 +109,11 @@ public class ConfigLoader {
      * @return Valeur de la propriété ou la valeur par défaut
      */
     public static String getString(Properties properties, String key, String defaultValue) {
-        return properties.getProperty(key, defaultValue);
+        String value = properties.getProperty(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        return value;
     }
     
     /**
