@@ -71,10 +71,11 @@ public class ConfigValidator {
         log.info("Validation de la configuration des modèles de présence...");
         boolean isValid = true;
         
-        // Vérifier le type de modèle
+        // Vérifier le type de modèle - seulement un avertissement, pas une erreur
         String modelType = config.getProperty("presence.model.type", "STANDARD");
         if (!modelType.equals("STANDARD") && !modelType.equals("YOLO")) {
             log.warn("Type de modèle de présence inconnu : {}, sera traité comme STANDARD", modelType);
+            // Ne pas changer isValid ici, car c'est juste un avertissement
         }
         
         // Vérifier le nombre de classes
@@ -102,10 +103,11 @@ public class ConfigValidator {
         log.info("Validation de la configuration des modèles d'activité...");
         boolean isValid = true;
         
-        // Vérifier le type de modèle
+        // Vérifier le type de modèle - seulement un avertissement, pas une erreur
         String modelType = config.getProperty("activity.model.type", "STANDARD");
         if (!modelType.equals("STANDARD") && !modelType.equals("VGG16") && !modelType.equals("RESNET")) {
             log.warn("Type de modèle d'activité inconnu : {}, sera traité comme STANDARD", modelType);
+            // Ne pas changer isValid ici, car c'est juste un avertissement
         }
         
         // Vérifier le nombre de classes
@@ -153,10 +155,11 @@ public class ConfigValidator {
         log.info("Validation de la configuration des modèles de son...");
         boolean isValid = true;
         
-        // Vérifier le type de modèle
+        // Vérifier le type de modèle - seulement un avertissement, pas une erreur
         String modelType = config.getProperty("sound.model.type", "STANDARD");
         if (!modelType.equals("STANDARD") && !modelType.equals("SPECTROGRAM")) {
             log.warn("Type de modèle de son inconnu : {}, sera traité comme STANDARD", modelType);
+            // Ne pas changer isValid ici, car c'est juste un avertissement
         }
         
         // Vérifier le nombre de classes
