@@ -13,7 +13,11 @@ import org.nd4j.linalg.lossfunctions.LossFunctions;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Properties;
 
+/**
+ * Classe utilitaire pour la création, la sauvegarde et le chargement de modèles.
+ */
 public class ModelUtils {
 
     /**
@@ -97,6 +101,36 @@ public class ModelUtils {
     }
     
     /**
+     * Crée un modèle à partir d'une configuration
+     * @param config Propriétés de configuration
+     * @param modelType Type de modèle (pour sélectionner les bons paramètres)
+     * @return Un réseau de neurones configuré
+     */
+    public static MultiLayerNetwork createModelFromConfig(Properties config, String modelType) {
+        String prefix = modelType + ".model.";
+        int numInputs = Integer.parseInt(config.getProperty(prefix + "input.size", "64"));
+        int numOutputs = Integer.parseInt(config.getProperty(prefix + "output.size", "2"));
+        int numHiddenLayers = Integer.parseInt(config.getProperty(prefix + "hidden.layers", "2"));
+        
+        // Si on a un nombre élevé de couches cachées, utiliser un réseau profond
+        if (numHiddenLayers > 2) {
+            return createDeepNetwork(numInputs, numOutputs);
+        } else {
+            return createSimpleNetwork(numInputs, numOutputs);
+        }
+    }
+    
+    /**
+     * Sauvegarde un modèle sur le disque
+     * @param model Le modèle à sauvegarder
+     * @param filePath Chemin où sauvegarder le modèle
+     * @throws IOException Si une erreur survient lors de la sauvegarde
+     */
+    public static void saveModel(MultiLayerNetwork model, String filePath) throws IOException {
+        saveModel(model, filePath, true);
+    }
+    
+    /**
      * Sauvegarde un modèle sur le disque
      * @param model Le modèle à sauvegarder
      * @param filePath Chemin où sauvegarder le modèle
@@ -115,6 +149,20 @@ public class ModelUtils {
         
         // Sauvegarder le modèle
         ModelSerializer.writeModel(model, file, includeUpdater);
+    }
+    
+    /**
+     * Exporte un modèle dans un format adapté pour DL4J
+     * @param model Le modèle à exporter
+     * @param filePath Chemin où sauvegarder le modèle
+     * @param includeUpdater Indique s'il faut inclure l'état de l'optimiseur
+     * @param version Version du format d'export
+     * @throws IOException Si une erreur survient lors de l'export
+     */
+    public static void exportModelForDL4J(MultiLayerNetwork model, String filePath, boolean includeUpdater, int version) throws IOException {
+        // Pour la compatibilité, utiliser simplement saveModel mais avec un log spécifique
+        System.out.println("Exportation du modèle au format DL4J v" + version + " vers " + filePath);
+        saveModel(model, filePath, includeUpdater);
     }
     
     /**
