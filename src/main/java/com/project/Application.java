@@ -9,6 +9,7 @@ import com.project.models.ModelValidator;
 import com.project.training.ActivityTrainer;
 import com.project.training.PresenceTrainer;
 import com.project.training.SoundTrainer;
+import com.project.training.YOLOPresenceTrainer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,8 +49,21 @@ public class Application {
         
         switch (command) {
             case "train-presence":
-                log.info("Démarrage de l'entraînement du modèle de détection de présence");
-                new PresenceTrainer(config).train();
+                // Vérifier si on utilise YOLO ou le modèle standard
+                String presenceModelType = config.getProperty("presence.model.type", "STANDARD");
+                
+                if ("YOLO".equalsIgnoreCase(presenceModelType)) {
+                    log.info("Démarrage de l'entraînement du modèle YOLO de détection de présence");
+                    new YOLOPresenceTrainer(config).train();
+                } else {
+                    log.info("Démarrage de l'entraînement du modèle standard de détection de présence");
+                    new PresenceTrainer(config).train();
+                }
+                break;
+                
+            case "train-presence-yolo":
+                log.info("Démarrage de l'entraînement du modèle YOLO de détection de présence");
+                new YOLOPresenceTrainer(config).train();
                 break;
                 
             case "train-activity":
@@ -64,7 +78,16 @@ public class Application {
                 
             case "train-all":
                 log.info("Démarrage de l'entraînement de tous les modèles");
-                new PresenceTrainer(config).train();
+                
+                // Entraînement du modèle de présence (YOLO ou standard)
+                String presenceType = config.getProperty("presence.model.type", "STANDARD");
+                if ("YOLO".equalsIgnoreCase(presenceType)) {
+                    new YOLOPresenceTrainer(config).train();
+                } else {
+                    new PresenceTrainer(config).train();
+                }
+                
+                // Entraînement des autres modèles
                 new ActivityTrainer(config).train();
                 new SoundTrainer(config).train();
                 break;
@@ -156,17 +179,18 @@ public class Application {
     private static void printUsage() {
         System.out.println("Usage: java -jar dl4j-detection-models.jar <commande>");
         System.out.println("Commandes disponibles :");
-        System.out.println("  train-presence    : Entraîne le modèle de détection de présence");
-        System.out.println("  train-activity    : Entraîne le modèle de détection d'activité");
-        System.out.println("  train-sound       : Entraîne le modèle de détection de sons");
-        System.out.println("  train-all         : Entraîne tous les modèles");
-        System.out.println("  export-presence   : Exporte le modèle de détection de présence");
-        System.out.println("  export-activity   : Exporte le modèle de détection d'activité");
-        System.out.println("  export-sound      : Exporte le modèle de détection de sons");
-        System.out.println("  export-all        : Exporte tous les modèles");
-        System.out.println("  test-presence     : Teste le modèle de détection de présence");
-        System.out.println("  test-activity     : Teste le modèle de détection d'activité");
-        System.out.println("  test-sound        : Teste le modèle de détection de sons");
-        System.out.println("  test-all          : Teste tous les modèles");
+        System.out.println("  train-presence     : Entraîne le modèle de détection de présence (YOLO ou standard selon la config)");
+        System.out.println("  train-presence-yolo: Entraîne spécifiquement le modèle YOLO de détection de présence");
+        System.out.println("  train-activity     : Entraîne le modèle de détection d'activité");
+        System.out.println("  train-sound        : Entraîne le modèle de détection de sons");
+        System.out.println("  train-all          : Entraîne tous les modèles");
+        System.out.println("  export-presence    : Exporte le modèle de détection de présence");
+        System.out.println("  export-activity    : Exporte le modèle de détection d'activité");
+        System.out.println("  export-sound       : Exporte le modèle de détection de sons");
+        System.out.println("  export-all         : Exporte tous les modèles");
+        System.out.println("  test-presence      : Teste le modèle de détection de présence");
+        System.out.println("  test-activity      : Teste le modèle de détection d'activité");
+        System.out.println("  test-sound         : Teste le modèle de détection de sons");
+        System.out.println("  test-all           : Teste tous les modèles");
     }
 }
