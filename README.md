@@ -418,3 +418,12 @@ Pour des exemples complets, voir les classes `ModelUsageExample.java` et `Spectr
 ## Licence
 
 Ce projet est sous licence MIT. Voir le fichier LICENSE pour plus de détails.
+
+## Prochaines étapes recommandées
+
+Pour continuer à améliorer le projet :
+
+- Ajouter des métriques d'évaluation: Implémenter des métriques comme la précision, le rappel et le F1-score
+- Visualiser les résultats: Créer des graphiques pour visualiser les performances d'entraînement
+- Gestion des erreurs: Améliorer la gestion des cas limites et des erreurs d'exécution
+- Parallélisation: Optimiser le chargement et le traitement des données pour améliorer les performances
