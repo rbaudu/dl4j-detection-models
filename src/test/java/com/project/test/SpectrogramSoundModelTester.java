@@ -131,7 +131,7 @@ public class SpectrogramSoundModelTester extends BaseModelTester implements Mode
             // Vérifier que la forme d'entrée est correcte
             long[] inputShape = model.layerInputSize(0);
             
-            if (inputShape[0] != channels || inputShape[1] != height || inputShape[2] != width) {
+            if (inputShape[0] != (long)channels || inputShape[1] != (long)height || inputShape[2] != (long)width) {
                 log.error("La forme d'entrée du modèle ([{}, {}, {}]) ne correspond pas à la forme attendue ([{}, {}, {}]) pour les spectrogrammes", 
                         inputShape[0], inputShape[1], inputShape[2], channels, height, width);
                 return false;
