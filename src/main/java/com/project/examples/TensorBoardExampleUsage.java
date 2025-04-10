@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -98,14 +99,13 @@ public class TensorBoardExampleUsage {
         // Simuler un entraînement simple (3 époques pour l'exemple)
         log.info("Simulation d'un entraînement avec suivi TensorBoard en direct...");
         for (int epoch = 1; epoch <= 3; epoch++) {
+            // Définir manuellement l'époque courante pour la configuration
+            model.getNetwork().getLayerWiseConfigurations().setEpochCount(epoch);
+            
             model.getNetwork().fit(trainIterator);
             trainIterator.reset();
             
             // Évaluer le modèle après chaque époque
-            model.getNetwork().evaluate(testIterator);
-            testIterator.reset();
-            
-            // Exporter explicitement l'évaluation vers TensorBoard (facultatif, déjà fait par le StatsListener)
             model.getNetwork().evaluate(testIterator);
             testIterator.reset();
         }
@@ -120,7 +120,7 @@ public class TensorBoardExampleUsage {
         log.info("=== Exemple 2: Exportation des métriques existantes vers TensorBoard ===");
         
         // Créer quelques métriques factices pour l'exemple
-        List<EvaluationMetrics> metricsList = MetricsExampleUsage.createSampleMetrics();
+        List<EvaluationMetrics> metricsList = createSampleMetrics();
         
         // Exporter les métriques vers TensorBoard
         String tensorBoardDir = config.getProperty("tensorboard.log.dir", "output/tensorboard");
@@ -171,14 +171,59 @@ public class TensorBoardExampleUsage {
         // Simuler un entraînement (3 époques pour l'exemple)
         log.info("Simulation d'un entraînement avec MetricsTracker et TensorBoard...");
         for (int epoch = 1; epoch <= 3; epoch++) {
-            model.getNetwork().setEpochCount(epoch);  // Important pour le tracker
+            // Simuler le début de l'époque
+            tracker.onEpochStart(model.getNetwork());
+            
+            // Exécuter l'entraînement
             model.getNetwork().fit(trainIterator);
             trainIterator.reset();
+            
+            // Simuler la fin de l'époque
+            tracker.onEpochEnd(model.getNetwork());
             
             // Le tracker exportera automatiquement les métriques vers TensorBoard
         }
         
         log.info("Entraînement terminé, métriques disponibles dans TensorBoard");
+    }
+    
+    /**
+     * Crée des métriques d'exemple pour les tests
+     */
+    public static List<EvaluationMetrics> createSampleMetrics() {
+        List<EvaluationMetrics> metrics = new ArrayList<>();
+        
+        // Ajouter quelques métriques d'exemple
+        for (int epoch = 1; epoch <= 10; epoch++) {
+            // Simuler des métriques qui s'améliorent au fil des époques
+            double accuracy = 0.5 + (epoch * 0.03);
+            double precision = 0.4 + (epoch * 0.04);
+            double recall = 0.45 + (epoch * 0.035);
+            double f1 = 0.42 + (epoch * 0.038);
+            
+            if (accuracy > 1.0) accuracy = 0.99;
+            if (precision > 1.0) precision = 0.98;
+            if (recall > 1.0) recall = 0.97;
+            if (f1 > 1.0) f1 = 0.96;
+            
+            // Créer l'objet de métriques
+            EvaluationMetrics evalMetrics = new EvaluationMetrics(
+                epoch, accuracy, precision, recall, f1, 10000 + epoch * 100
+            );
+            
+            // Ajouter des métriques par classe
+            for (int classIdx = 0; classIdx < 3; classIdx++) {
+                double classPrecision = precision - 0.05 + (classIdx * 0.02);
+                double classRecall = recall - 0.05 + (classIdx * 0.02);
+                double classF1 = f1 - 0.05 + (classIdx * 0.02);
+                
+                evalMetrics.addClassMetrics(classIdx, classPrecision, classRecall, classF1);
+            }
+            
+            metrics.add(evalMetrics);
+        }
+        
+        return metrics;
     }
     
     /**
