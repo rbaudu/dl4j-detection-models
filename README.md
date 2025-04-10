@@ -26,6 +26,38 @@ Cette implémentation utilise le **transfert d'apprentissage** avec des modèles
 
 Cette approche permet d'obtenir de bonnes performances même avec un nombre limité de données d'entraînement.
 
+## Système de métriques d'évaluation
+
+Le projet intègre un système complet de métriques d'évaluation qui permet de :
+
+1. **Collecter les métriques pendant l'entraînement** - Suivi automatique des métriques (accuracy, precision, recall, F1-score)
+2. **Générer des visualisations graphiques** - Création de graphiques d'évolution des métriques et comparaisons
+3. **Produire des rapports détaillés** - Génération de rapports au format texte et CSV
+4. **Comparer différents modèles** - Outils pour évaluer objectivement les performances de différentes architectures
+
+### Classes principales du système de métriques
+
+- **EvaluationMetrics** - Stocke les métriques d'évaluation
+- **MetricsTracker** - Collecte automatiquement les métriques pendant l'entraînement
+- **MetricsVisualizer** - Génère des visualisations graphiques des métriques
+- **ModelEvaluator** - Produit des rapports d'évaluation détaillés
+- **MetricsUtils** - Fournit des méthodes utilitaires pour faciliter l'utilisation
+
+### Exemples d'utilisation des métriques
+
+```java
+// Évaluer un modèle et obtenir des métriques détaillées
+EvaluationMetrics metrics = MetricsUtils.evaluateModel(model.getNetwork(), testData, "activity_model", config);
+
+// Vérifier si les performances respectent les seuils minimaux
+boolean valid = MetricsUtils.validateMetrics(metrics, config);
+
+// Générer des graphiques à partir des métriques collectées
+MetricsVisualizer.generateAllCharts(metricsList, "output/metrics", "activity_model");
+
+// Voir la classe MetricsExampleUsage pour des exemples complets
+```
+
 ## Structure du projet
 
 ```
@@ -41,10 +73,15 @@ project-root/
 │   │   │       ├── common/          # Code commun
 │   │   │       │   ├── config/      # Gestion de la configuration
 │   │   │       │   └── utils/       # Classes utilitaires
-│   │   │       │       ├── AudioUtils.java      # Traitement audio
-│   │   │       │       ├── DataProcessor.java   # Traitement de données
-│   │   │       │       ├── ImageUtils.java      # Traitement d'images
-│   │   │       │       ├── ModelUtils.java      # Gestion des modèles
+│   │   │       │       ├── AudioUtils.java              # Traitement audio
+│   │   │       │       ├── DataProcessor.java           # Traitement de données
+│   │   │       │       ├── EvaluationMetrics.java       # Stockage des métriques
+│   │   │       │       ├── ImageUtils.java              # Traitement d'images
+│   │   │       │       ├── MetricsTracker.java          # Suivi des métriques
+│   │   │       │       ├── MetricsUtils.java            # Méthodes utilitaires pour les métriques
+│   │   │       │       ├── MetricsVisualizer.java       # Visualisation des métriques
+│   │   │       │       ├── ModelEvaluator.java          # Évaluation détaillée des modèles
+│   │   │       │       ├── ModelUtils.java              # Gestion des modèles
 │   │   │       │       └── TransferLearningHelper.java  # Transfert d'apprentissage
 │   │   │       │
 │   │   │       ├── models/          # Définition des modèles
@@ -64,7 +101,8 @@ project-root/
 │   │   │       ├── export/          # Exportation des modèles
 │   │   │       ├── test/            # Tests des modèles
 │   │   │       ├── examples/        # Exemples d'utilisation
-│   │   │       │   ├── ModelUsageExample.java  # Démonstration des modèles
+│   │   │       │   ├── MetricsExampleUsage.java    # Démonstration des métriques
+│   │   │       │   ├── ModelUsageExample.java      # Démonstration des modèles
 │   │   │       │   └── SpectrogramSoundExample.java  # Démonstration du modèle de sons
 │   │   │       └── Application.java # Point d'entrée
 │   │   │
@@ -75,6 +113,12 @@ project-root/
 │   └── test/                        # Tests unitaires et d'intégration
 │       └── java/
 │           └── com/project/
+│               ├── common/          # Tests des utilitaires communs
+│               │   └── utils/       # Tests des classes utilitaires
+│               │       ├── EvaluationMetricsTest.java  # Tests pour EvaluationMetrics
+│               │       ├── MetricsTrackerTest.java     # Tests pour MetricsTracker
+│               │       ├── MetricsUtilsTest.java       # Tests pour MetricsUtils
+│               │       └── ModelEvaluatorTest.java     # Tests pour ModelEvaluator
 │               └── test/            # Tests des modèles générés
 │
 ├── data/                            # Données d'entraînement
@@ -111,6 +155,10 @@ project-root/
 ├── export/                          # Modèles exportés pour DL4J
 │
 ├── output/                          # Sorties diverses
+│   ├── metrics/                     # Rapports et visualisations des métriques
+│   │   ├── charts/                  # Graphiques des métriques
+│   │   ├── reports/                 # Rapports d'évaluation
+│   │   └── csv/                     # Données des métriques au format CSV
 │   └── spectrograms/                # Spectrogrammes générés
 │
 ├── scripts/                         # Scripts utilitaires
@@ -243,6 +291,14 @@ sound.sample.rate=44100
 sound.fft.size=2048
 sound.hop.size=512
 sound.mel.bands=128
+
+# Configuration des métriques d'évaluation
+metrics.output.dir=output/metrics
+test.min.accuracy=0.8
+test.min.precision=0.75
+test.min.recall=0.75
+test.min.f1=0.75
+evaluation.batch.size=32
 ```
 
 ## Utilisation
@@ -312,6 +368,59 @@ java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar ex
 java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-activity-vgg16
 java -jar target/dl4j-detection-models-1.0-SNAPSHOT-jar-with-dependencies.jar export-sound-spectrogram
 ```
+
+### Utilisation du système de métriques d'évaluation
+
+Le système de métriques peut être utilisé de plusieurs façons :
+
+#### 1. Métriques automatiques pendant l'entraînement
+
+La classe `ModelTrainer` collecte automatiquement les métriques pendant l'entraînement :
+
+```java
+// Créer un entraîneur
+ActivityTrainer trainer = new ActivityTrainer(config);
+
+// Entraîner le modèle (les métriques sont collectées automatiquement)
+trainer.train();
+
+// Accéder aux métriques collectées
+MetricsTracker tracker = trainer.getMetricsTracker();
+List<EvaluationMetrics> metrics = tracker.getMetrics();
+
+// Visualiser les métriques
+MetricsVisualizer.generateAllCharts(metrics, "output/metrics", "activity_model");
+```
+
+#### 2. Évaluation ponctuelle d'un modèle
+
+Vous pouvez évaluer un modèle existant à tout moment :
+
+```java
+// Charger un modèle
+ActivityModel model = new ActivityModel(config);
+model.loadDefaultModel();
+
+// Évaluer le modèle
+EvaluationMetrics metrics = MetricsUtils.evaluateModel(
+    model.getNetwork(), testData, "activity_model", config);
+
+// Vérifier les performances par rapport aux seuils
+boolean valid = MetricsUtils.validateMetrics(metrics, config);
+```
+
+#### 3. Comparaison de modèles
+
+```java
+// Générer un rapport comparatif
+MetricsUtils.generateModelComparisonReport(
+    new EvaluationMetrics[] { vgg16Metrics, resnetMetrics, mobileNetMetrics },
+    new String[] { "VGG16", "ResNet", "MobileNet" },
+    "output/metrics/model_comparison.txt"
+);
+```
+
+Pour des exemples complets, consultez la classe `MetricsExampleUsage.java`.
 
 ## Utilisation du modèle de sons basé sur spectrogrammes
 
@@ -406,7 +515,7 @@ soundModel.loadModel("models/sound/spectrogram_model.zip");
 String predictedSound = soundModel.predict(audioFilePath);
 ```
 
-Pour des exemples complets, voir les classes `ModelUsageExample.java` et `SpectrogramSoundExample.java`.
+Pour des exemples complets, voir les classes `ModelUsageExample.java`, `SpectrogramSoundExample.java` et `MetricsExampleUsage.java`.
 
 ## Avantages des nouveaux modèles
 
@@ -423,7 +532,8 @@ Ce projet est sous licence MIT. Voir le fichier LICENSE pour plus de détails.
 
 Pour continuer à améliorer le projet :
 
-- Ajouter des métriques d'évaluation: Implémenter des métriques comme la précision, le rappel et le F1-score
-- Visualiser les résultats: Créer des graphiques pour visualiser les performances d'entraînement
+- Intégration de courbes ROC et PR pour une analyse plus approfondie
+- Métriques spécialisées pour la détection d'objets (mAP, IoU)
+- Exportation des métriques vers TensorBoard pour une visualisation interactive
 - Gestion des erreurs: Améliorer la gestion des cas limites et des erreurs d'exécution
 - Parallélisation: Optimiser le chargement et le traitement des données pour améliorer les performances
