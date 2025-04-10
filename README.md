@@ -1,55 +1,28 @@
-# Projet de modèles de détection DL4J
+# DL4J Detection Models
 
-Ce projet fournit une infrastructure Java complète pour l'entraînement et l'exportation de modèles de détection utilisant Deeplearning4j (DL4J). Le projet inclut trois types de modèles de détection :
+Projet Java pour les modèles de détection (présence, activité et sons) utilisant DL4J.
 
-1. **Détection de présence** : Détecte la présence d'objets ou de personnes
-   - **YOLO** : Utilise YOLO pour la détection d'objets plus précise
-   - **Standard** : Modèle simple pour la détection binaire de présence
-2. **Détection d'activité** : Classifie différents types d'activités (27 classes différentes)
-   - **VGG16** : Utilise VGG16 pour la classification d'images avec transfert d'apprentissage
-   - **ResNet** : Utilise ResNet50 pour la classification d'images avec transfert d'apprentissage
-   - **Standard (MobileNetV2)** : Utilise MobileNetV2 pour la classification plus légère
-3. **Détection de sons** : Identifie et classifie différents types de sons
-   - **Standard (YAMNet)** : Utilise YAMNet pour la classification de sons
-   - **Spectrogramme** : Convertit les sons en spectrogrammes et utilise des modèles de vision (VGG16/ResNet) pour la classification
+## Description
 
-Les modèles sont exportés au format ZIP compatible avec DL4J, ce qui permet de les intégrer facilement dans d'autres applications Java.
+Ce projet permet de créer et d'entraîner des modèles de détection d'activité via des images et des fichiers audio (transformés en spectrogrammes).
 
-## Documentation
+## Compatibilité
 
-La documentation complète du projet est organisée dans les fichiers suivants:
+Ce projet a été migré vers DL4J 1.0.0-beta7.
 
-- [Installation et prérequis](docs/INSTALLATION.md) - Comment installer et configurer le projet
-- [Description des modèles](docs/MODELS.md) - Détails sur les modèles implémentés
-- [Guide d'utilisation](docs/USAGE.md) - Instructions d'utilisation générale
-- [Système de métriques](docs/METRICS.md) - Explication du système de métriques d'évaluation
-- [Export vers TensorBoard](docs/TENSORBOARD.md) - Guide sur l'exportation et l'utilisation de TensorBoard
-- [Installation de TensorBoard](docs/TENSORBOARD_INSTALL.md) - Instructions d'installation et de configuration de TensorBoard
-- [Classes d'activité](docs/CLASSES.md) - Liste des 27 classes d'activité supportées
-- [Utilisation avancée](docs/ADVANCED.md) - Personnalisation et utilisation avancée
-- [Documentation API détaillée](docs/API.md) - Documentation détaillée de l'API avec exemples de code
+## Corrections de la branche fix-unit-tests
 
-## Transfert d'apprentissage
+Cette branche corrige les problèmes de compilation des tests unitaires après la migration vers DL4J 1.0.0-beta7.
 
-Cette implémentation utilise le **transfert d'apprentissage** avec des modèles pré-entraînés pour améliorer les performances :
+Les modifications incluent :
 
-- **YOLO** pour la détection de présence (détection d'objets)
-- **VGG16/ResNet50** pour la détection d'activité (classification d'images)
-- **YAMNet** pour la détection de sons (classification audio)
-- **VGG16/ResNet50** sur spectrogrammes pour la détection de sons basée sur l'analyse visuelle
+1. Changement de visibilité de la méthode `getModel()` dans `MFCCSoundTrainer` et `SpectrogramSoundTrainer` de 'protected' à 'public' pour permettre l'accès depuis les tests.
 
-Cette approche permet d'obtenir de bonnes performances même avec un nombre limité de données d'entraînement.
+2. Mise à jour de la méthode `getLayerInputShape(int)` qui n'existe plus dans DL4J 1.0.0-beta7, remplacée par `layerInputSize(int)` qui retourne un `long[]` au lieu d'un `int[]`.
 
-## Installation rapide
+3. Correction des types dans tous les fichiers de test pour gérer le retour de type `long[]` au lieu de `int[]` :
+   - Dans `MFCCSoundModelTester.java` : Changement du type `int expectedInputSize` en `long expectedInputSize`
+   - Dans `SoundTrainerTest.java` : Changement du type `int inputSize` en `long inputSize`
+   - Dans `SpectrogramSoundModelTester.java` : Ajout de casts explicites `(long)channels`, `(long)height`, `(long)width` lors de la comparaison avec les éléments du tableau `long[]`.
 
-```
-git clone https://github.com/rbaudu/dl4j-detection-models.git
-cd dl4j-detection-models
-./scripts/build.sh
-```
-
-Voir [Installation et prérequis](docs/INSTALLATION.md) pour plus de détails.
-
-## Licence
-
-Ce projet est sous licence MIT. Voir le fichier LICENSE pour plus de détails.
+Ces modifications permettent une compilation réussie des tests unitaires et sont compatibles avec la version beta7 de DL4J.
