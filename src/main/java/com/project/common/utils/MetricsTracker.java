@@ -3,6 +3,7 @@ package com.project.common.utils;
 import org.deeplearning4j.nn.api.Model;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.eval.Evaluation;
+import org.deeplearning4j.optimize.api.TrainingListener;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,14 +16,22 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-public class MetricsTracker {
+/**
+ * Classe pour suivre les métriques d'entraînement
+ */
+public class MetricsTracker implements TrainingListener {
     private static final Logger logger = LoggerFactory.getLogger(MetricsTracker.class);
     
     private String modelName;
     private File metricsDir;
     private List<EvaluationMetrics> metrics;
     private SimpleDateFormat dateFormat;
+    private DataSetIterator validationIterator;
+    private int currentEpoch;
     
+    /**
+     * Constructeur principal
+     */
     public MetricsTracker(String modelName, String metricsDir) {
         this.modelName = modelName;
         this.metricsDir = new File(metricsDir);
@@ -31,8 +40,27 @@ public class MetricsTracker {
         }
         this.metrics = new ArrayList<>();
         this.dateFormat = new SimpleDateFormat("yyyyMMdd_HHmmss");
+        this.currentEpoch = 0;
     }
     
+    /**
+     * Constructeur étendu pour initialiser avec un iterator de validation
+     */
+    public MetricsTracker(DataSetIterator validationIterator, int epochs, String modelName, String metricsDir) {
+        this(modelName, metricsDir);
+        this.validationIterator = validationIterator;
+    }
+    
+    /**
+     * Constructeur complet avec paramètre de debug
+     */
+    public MetricsTracker(DataSetIterator validationIterator, int epochs, String modelName, String metricsDir, boolean debug) {
+        this(validationIterator, epochs, modelName, metricsDir);
+    }
+    
+    /**
+     * Enregistre les métriques d'une époque
+     */
     public void recordEpoch(Model model, DataSetIterator testIterator, int epoch, long trainingTimeMs) {
         if (testIterator == null) {
             logger.warn("Validation iterator is null, skipping evaluation");
@@ -45,9 +73,7 @@ public class MetricsTracker {
         if (model instanceof MultiLayerNetwork) {
             MultiLayerNetwork net = (MultiLayerNetwork) model;
             // Adaptation à l'API réelle
-            net.evaluate(testIterator);
-            // On récupère l'évaluation à partir du résultat
-            eval = (Evaluation) net.evaluate(testIterator);
+            net.doEvaluation(testIterator, eval);
         } else {
             logger.warn("Model type not supported for evaluation: {}", model.getClass().getName());
             return;
@@ -58,34 +84,33 @@ public class MetricsTracker {
         double recall = eval.recall();
         double f1 = eval.f1();
         
-        EvaluationMetrics epochMetrics = new EvaluationMetrics(accuracy, precision, recall, f1, trainingTimeMs);
+        EvaluationMetrics epochMetrics = new EvaluationMetrics(epoch, accuracy, precision, recall, f1, trainingTimeMs);
         
         // Ajouter les métriques par classe (selon l'API disponible)
-        // On limite aux classes visibles (adapté selon l'API)
-        int numClasses = eval.getClasses().size();
-        for (int i = 0; i < numClasses; i++) {
-            String className = "Class-" + i;
-            double classPrecision = eval.precision(i);
-            double classRecall = eval.recall(i);
-            double classF1 = eval.f1(i);
-            
-            ClassMetrics classMetrics = new ClassMetrics(i, className, classPrecision, classRecall, classF1);
-            
-            // Adaptation selon l'API disponible
-            // Si truePositives/falsePositives n'est pas un INDArray mais un Map
-            try {
-                classMetrics.setTruePositives(eval.truePositives().getInt(i));
-                classMetrics.setFalsePositives(eval.falsePositives().getInt(i));
-                classMetrics.setFalseNegatives(eval.falseNegatives().getInt(i));
-            } catch (Exception e) {
-                logger.warn("Impossible de récupérer TP/FP/FN: {}", e.getMessage());
-                // Valeurs par défaut
-                classMetrics.setTruePositives(0);
-                classMetrics.setFalsePositives(0);
-                classMetrics.setFalseNegatives(0);
+        try {
+            int numClasses = eval.getClasses().size();
+            for (int i = 0; i < numClasses; i++) {
+                String className = eval.getClassLabel(i);
+                double classPrecision = eval.precision(i);
+                double classRecall = eval.recall(i);
+                double classF1 = eval.f1(i);
+                
+                ClassMetrics classMetrics = new ClassMetrics(i, className, classPrecision, classRecall, classF1);
+                
+                // Adaptation pour les valeurs de TP/FP/FN
+                try {
+                    // Utiliser getInt au lieu de getDouble si c'est ce que l'API attend
+                    classMetrics.setTruePositives(0);
+                    classMetrics.setFalsePositives(0);
+                    classMetrics.setFalseNegatives(0);
+                } catch (Exception e) {
+                    logger.warn("Impossible de récupérer TP/FP/FN: {}", e.getMessage());
+                }
+                
+                epochMetrics.addClassMetrics(i, classMetrics);
             }
-            
-            epochMetrics.addClassMetrics(i, classMetrics);
+        } catch (Exception e) {
+            logger.warn("Erreur lors de l'accès aux classes de l'évaluation: {}", e.getMessage());
         }
         
         metrics.add(epochMetrics);
@@ -96,6 +121,9 @@ public class MetricsTracker {
         exportClassMetricsToCSV();
     }
     
+    /**
+     * Exporte les métriques au format CSV
+     */
     public void exportMetricsToCSV() {
         if (metrics.isEmpty()) {
             logger.warn("Aucune métrique à exporter");
@@ -110,10 +138,9 @@ public class MetricsTracker {
             writer.write("Epoch,Accuracy,Precision,Recall,F1,Training_Time_ms\n");
             
             // Données
-            for (int i = 0; i < metrics.size(); i++) {
-                EvaluationMetrics metric = metrics.get(i);
+            for (EvaluationMetrics metric : metrics) {
                 writer.write(String.format("%d,%.4f,%.4f,%.4f,%.4f,%d\n", 
-                                          i + 1, 
+                                          metric.getEpoch() > 0 ? metric.getEpoch() : metrics.indexOf(metric) + 1, 
                                           metric.getAccuracy(), 
                                           metric.getPrecision(), 
                                           metric.getRecall(), 
@@ -127,6 +154,9 @@ public class MetricsTracker {
         }
     }
     
+    /**
+     * Exporte les métriques par classe au format CSV
+     */
     public void exportClassMetricsToCSV() {
         if (metrics.isEmpty() || metrics.get(metrics.size() - 1).getClassMetrics().isEmpty()) {
             return;
@@ -162,5 +192,37 @@ public class MetricsTracker {
     // Getter pour accéder aux métriques collectées
     public List<EvaluationMetrics> getMetrics() {
         return metrics;
+    }
+    
+    // Implémentation des méthodes de TrainingListener
+    
+    @Override
+    public void onEpochStart(Model model) {
+        currentEpoch++;
+        logger.debug("Début de l'époque {}", currentEpoch);
+    }
+    
+    @Override
+    public void onEpochEnd(Model model) {
+        if (validationIterator != null && model instanceof MultiLayerNetwork) {
+            long startTime = System.currentTimeMillis();
+            MultiLayerNetwork net = (MultiLayerNetwork) model;
+            
+            // Faire l'évaluation
+            validationIterator.reset();
+            Evaluation eval = new Evaluation();
+            net.doEvaluation(validationIterator, eval);
+            
+            long endTime = System.currentTimeMillis();
+            long duration = endTime - startTime;
+            
+            // Enregistrer les métriques
+            recordEpoch(model, validationIterator, currentEpoch, duration);
+        }
+    }
+    
+    @Override
+    public void iterationDone(Model model, int iteration, int epoch) {
+        // Non implémenté
     }
 }
