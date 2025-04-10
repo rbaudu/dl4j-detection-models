@@ -4,6 +4,7 @@ import org.deeplearning4j.nn.api.Model;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.eval.Evaluation;
 import org.deeplearning4j.optimize.api.TrainingListener;
+import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Classe pour suivre les métriques d'entraînement
@@ -88,9 +90,10 @@ public class MetricsTracker implements TrainingListener {
         
         // Ajouter les métriques par classe (selon l'API disponible)
         try {
-            int numClasses = eval.getClasses().size();
-            for (int i = 0; i < numClasses; i++) {
-                String className = eval.getClassLabel(i);
+            // Utiliser getLabels() au lieu de getClasses() si getClasses() n'est pas disponible
+            List<String> classes = eval.getLabels();
+            for (int i = 0; i < classes.size(); i++) {
+                String className = classes.get(i);
                 double classPrecision = eval.precision(i);
                 double classRecall = eval.recall(i);
                 double classF1 = eval.f1(i);
@@ -224,5 +227,27 @@ public class MetricsTracker implements TrainingListener {
     @Override
     public void iterationDone(Model model, int iteration, int epoch) {
         // Non implémenté
+    }
+    
+    // Méthodes additionnelles requises par l'interface TrainingListener
+    
+    @Override
+    public void onForwardPass(Model model, List<INDArray> activations) {
+        // Non implémenté - requis par l'interface
+    }
+    
+    @Override
+    public void onForwardPass(Model model, Map<String, INDArray> activations) {
+        // Non implémenté - requis par l'interface
+    }
+    
+    @Override
+    public void onGradientCalculation(Model model) {
+        // Non implémenté - requis par l'interface
+    }
+    
+    @Override
+    public void onBackwardPass(Model model) {
+        // Non implémenté - requis par l'interface
     }
 }
