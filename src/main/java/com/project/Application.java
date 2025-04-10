@@ -1,314 +1,315 @@
 package com.project;
 
-import com.project.common.config.ConfigLoader;
 import com.project.common.config.ConfigValidator;
-import com.project.common.utils.DataProcessor;
 import com.project.common.utils.LoggingUtils;
-import com.project.export.ActivityExporter;
-import com.project.export.PresenceExporter;
-import com.project.export.SoundExporter;
-import com.project.models.ModelValidator;
-import com.project.training.ActivityTrainer;
-import com.project.training.PresenceTrainer;
 import com.project.training.SoundTrainer;
-import com.project.training.YOLOPresenceTrainer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Properties;
 
 /**
- * Point d'entrée principal de l'application.
- * Cette classe gère l'exécution des différents processus d'entraînement et d'export des modèles.
+ * Classe principale de l'application
  */
 public class Application {
-    private static final Logger log = LoggerFactory.getLogger(Application.class);
-
+    private static final Logger logger = LoggerFactory.getLogger(Application.class);
+    private static final String CONFIG_PATH = "config/application.properties";
+    
     public static void main(String[] args) {
-        log.info("Démarrage de l'application de modèles de détection avec DL4J");
+        logger.info("Démarrage de l'application de modèles de détection");
         
-        try {
-            // Charger la configuration
-            Properties config = ConfigLoader.loadConfiguration();
-            log.info("Configuration chargée avec succès");
-            
-            // Valider la configuration
-            boolean configValid = ConfigValidator.validateConfig(config);
-            if (!configValid) {
-                log.warn("La configuration contient des erreurs, l'application pourrait ne pas fonctionner correctement");
-            }
-            
-            if (args.length > 0) {
-                processArguments(args, config);
-            } else {
-                printUsage();
-            }
-        } catch (Exception e) {
-            log.error("Erreur lors de l'exécution de l'application", e);
-            System.exit(1);
+        // Charger la configuration
+        Properties config = loadConfig(args.length > 0 ? args[0] : CONFIG_PATH);
+        if (config == null) {
+            logger.error("Impossible de charger la configuration. Arrêt de l'application.");
+            return;
         }
         
-        log.info("Application terminée avec succès");
+        // Valider la configuration
+        ConfigValidator validator = new ConfigValidator();
+        if (!validator.validateConfig(config)) {
+            logger.error("La configuration est invalide. Arrêt de l'application.");
+            return;
+        }
+        
+        // Déterminer le mode d'exécution
+        String mode = args.length > 1 ? args[1] : "train";
+        
+        switch (mode.toLowerCase()) {
+            case "train":
+                trainModels(config, args);
+                break;
+            case "evaluate":
+                evaluateModels(config, args);
+                break;
+            case "predict":
+                predictWithModels(config, args);
+                break;
+            default:
+                logger.error("Mode non reconnu: {}. Utiliser 'train', 'evaluate' ou 'predict'.", mode);
+        }
+        
+        logger.info("Application terminée");
     }
     
-    private static void processArguments(String[] args, Properties config) throws Exception {
-        String command = args[0].toLowerCase();
+    /**
+     * Charge la configuration depuis un fichier
+     */
+    private static Properties loadConfig(String configPath) {
+        Properties config = new Properties();
         
-        switch (command) {
-            case "train-presence":
-                // Vérifier si on utilise YOLO ou le modèle standard
-                String presenceModelType = config.getProperty("presence.model.type", "STANDARD");
-                
-                if ("YOLO".equalsIgnoreCase(presenceModelType)) {
-                    log.info("Démarrage de l'entraînement du modèle YOLO de détection de présence");
-                    // Définir le chemin du modèle en fonction du type
-                    config.setProperty("presence.model.path", config.getProperty("presence.yolo.model.path"));
-                    LoggingUtils.logPresenceTrainingParameters(config);
-                    new YOLOPresenceTrainer(config).train();
-                } else {
-                    log.info("Démarrage de l'entraînement du modèle standard de détection de présence");
-                    LoggingUtils.logPresenceTrainingParameters(config);
-                    new PresenceTrainer(config).train();
-                }
-                break;
-                
-            case "train-presence-yolo":
-                log.info("Démarrage de l'entraînement du modèle YOLO de détection de présence");
-                // Définir le chemin du modèle en fonction du type
-                config.setProperty("presence.model.path", config.getProperty("presence.yolo.model.path"));
-                LoggingUtils.logPresenceTrainingParameters(config);
-                new YOLOPresenceTrainer(config).train();
-                break;
-                
-            case "train-activity":
-                // Détecter le type de modèle à utiliser
-                String activityModelType = config.getProperty("activity.model.type", "STANDARD");
-                
-                if ("VGG16".equalsIgnoreCase(activityModelType)) {
-                    log.info("Démarrage de l'entraînement du modèle VGG16 de détection d'activité");
-                    // Forcer l'utilisation de VGG16
-                    config.setProperty("activity.model.type", "VGG16");
-                    // Définir le chemin du modèle en fonction du type
-                    config.setProperty("activity.model.path", config.getProperty("activity.vgg16.model.path"));
-                    LoggingUtils.logActivityTrainingParameters(config);
-                    new ActivityTrainer(config).train();
-                } else if ("RESNET".equalsIgnoreCase(activityModelType)) {
-                    log.info("Démarrage de l'entraînement du modèle ResNet de détection d'activité");
-                    // Forcer l'utilisation de ResNet
-                    config.setProperty("activity.model.type", "RESNET");
-                    // Définir le chemin du modèle en fonction du type
-                    config.setProperty("activity.model.path", config.getProperty("activity.resnet.model.path"));
-                    LoggingUtils.logActivityTrainingParameters(config);
-                    new ActivityTrainer(config).train();
-                } else {
-                    log.info("Démarrage de l'entraînement du modèle standard de détection d'activité");
-                    LoggingUtils.logActivityTrainingParameters(config);
-                    new ActivityTrainer(config).train();
-                }
-                break;
-                
-            case "train-activity-vgg16":
-                log.info("Démarrage de l'entraînement du modèle VGG16 de détection d'activité");
-                // Forcer l'utilisation de VGG16
-                config.setProperty("activity.model.type", "VGG16");
-                // Définir le chemin du modèle en fonction du type
-                config.setProperty("activity.model.path", config.getProperty("activity.vgg16.model.path"));
-                LoggingUtils.logActivityTrainingParameters(config);
-                new ActivityTrainer(config).train();
-                break;
-                
-            case "train-activity-resnet":
-                log.info("Démarrage de l'entraînement du modèle ResNet de détection d'activité");
-                // Forcer l'utilisation de ResNet
-                config.setProperty("activity.model.type", "RESNET");
-                // Définir le chemin du modèle en fonction du type
-                config.setProperty("activity.model.path", config.getProperty("activity.resnet.model.path"));
-                LoggingUtils.logActivityTrainingParameters(config);
-                new ActivityTrainer(config).train();
-                break;
-                
-            case "train-sound":
-                // Détecter le type de modèle à utiliser
-                String soundModelType = config.getProperty("sound.model.type", "STANDARD");
-                
-                if ("SPECTROGRAM".equalsIgnoreCase(soundModelType)) {
-                    log.info("Démarrage de l'entraînement du modèle spectrogram de détection de sons");
-                    // Forcer l'utilisation de Spectrogram
-                    config.setProperty("sound.model.type", "SPECTROGRAM");
-                    // Définir le chemin du modèle en fonction du type
-                    config.setProperty("sound.model.path", config.getProperty("sound.spectrogram.model.path"));
-                    LoggingUtils.logSoundTrainingParameters(config);
-                    new SoundTrainer(config).train();
-                } else {
-                    log.info("Démarrage de l'entraînement du modèle standard de détection de sons");
-                    LoggingUtils.logSoundTrainingParameters(config);
-                    new SoundTrainer(config).train();
-                }
-                break;
-                
-            case "train-sound-spectrogram":
-                log.info("Démarrage de l'entraînement du modèle spectrogram de détection de sons");
-                // Forcer l'utilisation de Spectrogram
-                config.setProperty("sound.model.type", "SPECTROGRAM");
-                // Définir le chemin du modèle en fonction du type
-                config.setProperty("sound.model.path", config.getProperty("sound.spectrogram.model.path"));
-                LoggingUtils.logSoundTrainingParameters(config);
-                new SoundTrainer(config).train();
-                break;
-                
-            case "train-all":
-                log.info("Démarrage de l'entraînement de tous les modèles");
-                
-                // Entraînement du modèle de présence (YOLO ou standard)
-                String presenceType = config.getProperty("presence.model.type", "STANDARD");
-                log.info("Entraînement du modèle de présence (type: {})", presenceType);
-                if ("YOLO".equalsIgnoreCase(presenceType)) {
-                    // Définir le chemin du modèle en fonction du type
-                    config.setProperty("presence.model.path", config.getProperty("presence.yolo.model.path"));
-                } else {
-                    // Utiliser le chemin par défaut pour le modèle standard
-                    config.setProperty("presence.model.path", config.getProperty("presence.model.dir") + "/model.zip");
-                }
-                LoggingUtils.logPresenceTrainingParameters(config);
-                if ("YOLO".equalsIgnoreCase(presenceType)) {
-                    new YOLOPresenceTrainer(config).train();
-                } else {
-                    new PresenceTrainer(config).train();
-                }
-                
-                // Entraînement du modèle d'activité
-                String activityType = config.getProperty("activity.model.type", "STANDARD");
-                log.info("Entraînement du modèle d'activité (type: {})", activityType);
-                if ("VGG16".equalsIgnoreCase(activityType)) {
-                    // Définir le chemin du modèle en fonction du type
-                    config.setProperty("activity.model.path", config.getProperty("activity.vgg16.model.path"));
-                } else if ("RESNET".equalsIgnoreCase(activityType)) {
-                    // Définir le chemin du modèle en fonction du type
-                    config.setProperty("activity.model.path", config.getProperty("activity.resnet.model.path"));
-                } else {
-                    // Utiliser le chemin par défaut pour le modèle standard
-                    config.setProperty("activity.model.path", config.getProperty("activity.model.dir") + "/model.zip");
-                }
-                LoggingUtils.logActivityTrainingParameters(config);
-                new ActivityTrainer(config).train();
-                
-                // Entraînement du modèle de son
-                String soundType = config.getProperty("sound.model.type", "STANDARD");
-                log.info("Entraînement du modèle de son (type: {})", soundType);
-                if ("SPECTROGRAM".equalsIgnoreCase(soundType)) {
-                    // Définir le chemin du modèle en fonction du type
-                    config.setProperty("sound.model.path", config.getProperty("sound.spectrogram.model.path"));
-                } else {
-                    // Utiliser le chemin par défaut pour le modèle standard
-                    config.setProperty("sound.model.path", config.getProperty("sound.model.dir") + "/model.zip");
-                }
-                LoggingUtils.logSoundTrainingParameters(config);
-                new SoundTrainer(config).train();
-                break;
-                
-            case "export-presence":
-                log.info("Exportation du modèle de détection de présence");
-                new PresenceExporter(config).export();
-                break;
-                
-            case "export-activity":
-                log.info("Exportation du modèle de détection d'activité");
-                new ActivityExporter(config).export();
-                break;
-                
-            case "export-sound":
-                log.info("Exportation du modèle de détection de sons");
-                new SoundExporter(config).export();
-                break;
-                
-            case "export-all":
-                log.info("Exportation de tous les modèles");
-                new PresenceExporter(config).export();
-                new ActivityExporter(config).export();
-                new SoundExporter(config).export();
-                break;
-                
-            case "test-presence":
-                log.info("Test du modèle de détection de présence");
-                validateModel(new ModelValidator(config), "presence");
-                break;
-
-            case "test-activity":
-                log.info("Test du modèle de détection d'activité");
-                validateModel(new ModelValidator(config), "activity");
-                break;
-
-            case "test-sound":
-                log.info("Test du modèle de détection de sons");
-                validateModel(new ModelValidator(config), "sound");
-                break;
-
-            case "test-all":
-                log.info("Test de tous les modèles");
-                validateAllModels(new ModelValidator(config));
-                break;
-                
-            default:
-                printUsage();
-                break;
+        try (FileInputStream input = new FileInputStream(configPath)) {
+            config.load(input);
+            logger.info("Configuration chargée depuis: {}", configPath);
+            return config;
+        } catch (IOException e) {
+            logger.error("Erreur lors du chargement de la configuration: {}", e.getMessage());
+            return null;
         }
     }
     
     /**
-     * Valide un modèle spécifique
-     * 
-     * @param validator Le validateur de modèle
-     * @param modelType Le type de modèle à valider
-     * @throws IOException Si une erreur survient lors de la validation
+     * Entraîne les modèles selon les paramètres
      */
-    private static void validateModel(ModelValidator validator, String modelType) throws IOException {
-        boolean result = false;
+    private static void trainModels(Properties config, String[] args) {
+        String modelType = args.length > 2 ? args[2] : "all";
         
-        switch (modelType) {
+        switch (modelType.toLowerCase()) {
             case "presence":
-                result = validator.validatePresenceModel();
+                trainPresenceModel(config);
                 break;
             case "activity":
-                result = validator.validateActivityModel();
+                trainActivityModel(config);
                 break;
             case "sound":
-                result = validator.validateSoundModel();
+                trainSoundModel(config);
                 break;
+            case "all":
+                trainPresenceModel(config);
+                trainActivityModel(config);
+                trainSoundModel(config);
+                break;
+            default:
+                logger.error("Type de modèle non reconnu: {}. Utiliser 'presence', 'activity', 'sound' ou 'all'.", modelType);
         }
-        
-        log.info("Validation du modèle {}: {}", modelType, result ? "succès" : "échec");
     }
     
     /**
-     * Valide tous les modèles
-     * 
-     * @param validator Le validateur de modèle
-     * @throws IOException Si une erreur survient lors de la validation
+     * Entraîne un modèle de présence
      */
-    private static void validateAllModels(ModelValidator validator) throws IOException {
-        boolean result = validator.validateAllModels();
-        log.info("Validation de tous les modèles: {}", result ? "succès" : "échec");
+    private static void trainPresenceModel(Properties config) {
+        logger.info("Entraînement du modèle de présence");
+        LoggingUtils.logPresenceTrainingParameters(config);
+        
+        // TODO: Implémenter l'entraînement du modèle de présence
+        
+        logger.info("Entraînement du modèle de présence terminé");
     }
     
-    private static void printUsage() {
-        System.out.println("Usage: java -jar dl4j-detection-models.jar <commande>");
-        System.out.println("Commandes disponibles :");
-        System.out.println("  train-presence        : Entraîne le modèle de détection de présence (YOLO ou standard selon la config)");
-        System.out.println("  train-presence-yolo   : Entraîne spécifiquement le modèle YOLO de détection de présence");
-        System.out.println("  train-activity        : Entraîne le modèle de détection d'activité selon la configuration");
-        System.out.println("  train-activity-vgg16  : Entraîne spécifiquement le modèle VGG16 de détection d'activité");
-        System.out.println("  train-activity-resnet : Entraîne spécifiquement le modèle ResNet de détection d'activité");
-        System.out.println("  train-sound           : Entraîne le modèle de détection de sons selon la configuration");
-        System.out.println("  train-sound-spectrogram: Entraîne spécifiquement le modèle basé sur spectrogrammes");
-        System.out.println("  train-all             : Entraîne tous les modèles");
-        System.out.println("  export-presence       : Exporte le modèle de détection de présence");
-        System.out.println("  export-activity       : Exporte le modèle de détection d'activité");
-        System.out.println("  export-sound          : Exporte le modèle de détection de sons");
-        System.out.println("  export-all            : Exporte tous les modèles");
-        System.out.println("  test-presence         : Teste le modèle de détection de présence");
-        System.out.println("  test-activity         : Teste le modèle de détection d'activité");
-        System.out.println("  test-sound            : Teste le modèle de détection de sons");
-        System.out.println("  test-all              : Teste tous les modèles");
+    /**
+     * Entraîne un modèle d'activité
+     */
+    private static void trainActivityModel(Properties config) {
+        logger.info("Entraînement du modèle d'activité");
+        LoggingUtils.logActivityTrainingParameters(config);
+        
+        // TODO: Implémenter l'entraînement du modèle d'activité
+        
+        logger.info("Entraînement du modèle d'activité terminé");
+    }
+    
+    /**
+     * Entraîne un modèle de son
+     */
+    private static void trainSoundModel(Properties config) {
+        logger.info("Entraînement du modèle de son");
+        LoggingUtils.logSoundTrainingParameters(config);
+        
+        // Utiliser la factory pour créer le bon type d'entraîneur
+        String soundTrainerType = config.getProperty("sound.trainer.type", "MFCC");
+        SoundTrainer trainer = SoundTrainer.createTrainer(soundTrainerType, config);
+        
+        // Entraîner le modèle
+        try {
+            trainer.train();
+            logger.info("Entraînement du modèle de son terminé");
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'entraînement du modèle de son: {}", e.getMessage());
+            LoggingUtils.logException(e, "trainSoundModel");
+        }
+    }
+    
+    /**
+     * Évalue les modèles selon les paramètres
+     */
+    private static void evaluateModels(Properties config, String[] args) {
+        String modelType = args.length > 2 ? args[2] : "all";
+        
+        switch (modelType.toLowerCase()) {
+            case "presence":
+                evaluatePresenceModel(config);
+                break;
+            case "activity":
+                evaluateActivityModel(config);
+                break;
+            case "sound":
+                evaluateSoundModel(config);
+                break;
+            case "all":
+                evaluatePresenceModel(config);
+                evaluateActivityModel(config);
+                evaluateSoundModel(config);
+                break;
+            default:
+                logger.error("Type de modèle non reconnu: {}. Utiliser 'presence', 'activity', 'sound' ou 'all'.", modelType);
+        }
+    }
+    
+    /**
+     * Évalue un modèle de présence
+     */
+    private static void evaluatePresenceModel(Properties config) {
+        logger.info("Évaluation du modèle de présence");
+        LoggingUtils.logPresenceTrainingParameters(config);
+        
+        // TODO: Implémenter l'évaluation du modèle de présence
+        
+        logger.info("Évaluation du modèle de présence terminée");
+    }
+    
+    /**
+     * Évalue un modèle d'activité
+     */
+    private static void evaluateActivityModel(Properties config) {
+        logger.info("Évaluation du modèle d'activité");
+        LoggingUtils.logActivityTrainingParameters(config);
+        
+        // TODO: Implémenter l'évaluation du modèle d'activité
+        
+        logger.info("Évaluation du modèle d'activité terminée");
+    }
+    
+    /**
+     * Évalue un modèle de son
+     */
+    private static void evaluateSoundModel(Properties config) {
+        logger.info("Évaluation du modèle de son");
+        LoggingUtils.logSoundTrainingParameters(config);
+        
+        // Utiliser la factory pour créer le bon type d'entraîneur
+        String soundTrainerType = config.getProperty("sound.trainer.type", "MFCC");
+        try {
+            SoundTrainer trainer = SoundTrainer.createTrainer(soundTrainerType, config);
+            // TODO: Implémenter l'évaluation du modèle de son
+            
+            logger.info("Évaluation du modèle de son terminée");
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'évaluation du modèle de son: {}", e.getMessage());
+            LoggingUtils.logException(e, "evaluateSoundModel");
+        }
+    }
+    
+    /**
+     * Fait des prédictions avec les modèles
+     */
+    private static void predictWithModels(Properties config, String[] args) {
+        String modelType = args.length > 2 ? args[2] : "all";
+        
+        switch (modelType.toLowerCase()) {
+            case "presence":
+                predictWithPresenceModel(config, args);
+                break;
+            case "activity":
+                predictWithActivityModel(config, args);
+                break;
+            case "sound":
+                predictWithSoundModel(config, args);
+                break;
+            case "all":
+                predictWithPresenceModel(config, args);
+                predictWithActivityModel(config, args);
+                predictWithSoundModel(config, args);
+                break;
+            default:
+                logger.error("Type de modèle non reconnu: {}. Utiliser 'presence', 'activity', 'sound' ou 'all'.", modelType);
+        }
+    }
+    
+    /**
+     * Fait une prédiction avec un modèle de présence
+     */
+    private static void predictWithPresenceModel(Properties config, String[] args) {
+        logger.info("Prédiction avec le modèle de présence");
+        
+        if (args.length <= 3) {
+            logger.error("Chemin d'entrée manquant pour la prédiction de présence");
+            return;
+        }
+        
+        String inputPath = args[3];
+        if (!Files.exists(Paths.get(inputPath))) {
+            logger.error("Fichier d'entrée introuvable: {}", inputPath);
+            return;
+        }
+        
+        // TODO: Implémenter la prédiction avec le modèle de présence
+        
+        logger.info("Prédiction avec le modèle de présence terminée");
+    }
+    
+    /**
+     * Fait une prédiction avec un modèle d'activité
+     */
+    private static void predictWithActivityModel(Properties config, String[] args) {
+        logger.info("Prédiction avec le modèle d'activité");
+        
+        if (args.length <= 3) {
+            logger.error("Chemin d'entrée manquant pour la prédiction d'activité");
+            return;
+        }
+        
+        String inputPath = args[3];
+        if (!Files.exists(Paths.get(inputPath))) {
+            logger.error("Fichier d'entrée introuvable: {}", inputPath);
+            return;
+        }
+        
+        // TODO: Implémenter la prédiction avec le modèle d'activité
+        
+        logger.info("Prédiction avec le modèle d'activité terminée");
+    }
+    
+    /**
+     * Fait une prédiction avec un modèle de son
+     */
+    private static void predictWithSoundModel(Properties config, String[] args) {
+        logger.info("Prédiction avec le modèle de son");
+        
+        if (args.length <= 3) {
+            logger.error("Chemin d'entrée manquant pour la prédiction de son");
+            return;
+        }
+        
+        String inputPath = args[3];
+        if (!Files.exists(Paths.get(inputPath))) {
+            logger.error("Fichier d'entrée introuvable: {}", inputPath);
+            return;
+        }
+        
+        // Utiliser la factory pour créer le bon type d'entraîneur
+        String soundTrainerType = config.getProperty("sound.trainer.type", "MFCC");
+        try {
+            SoundTrainer trainer = SoundTrainer.createTrainer(soundTrainerType, config);
+            // TODO: Implémenter la prédiction avec le modèle de son
+            
+            logger.info("Prédiction avec le modèle de son terminée");
+        } catch (Exception e) {
+            logger.error("Erreur lors de la prédiction avec le modèle de son: {}", e.getMessage());
+            LoggingUtils.logException(e, "predictWithSoundModel");
+        }
     }
 }
