@@ -138,7 +138,10 @@ public class SpectrogramSoundModelTester extends BaseModelTester implements Mode
             }
             
             // Vérifier que la forme d'entrée correspond au nombre de canaux (en général 1 pour niveaux de gris)
-            int inputChannels = model.getLayer(0).getParam("W").shape()[1]; // Pour les CNN, les canaux sont à l'indice 1
+            // Conversion explicite de long en int pour éviter l'erreur de compilation
+            long inputChannelsLong = model.getLayer(0).getParam("W").shape()[1]; // Pour les CNN, les canaux sont à l'indice 1
+            int inputChannels = (int) inputChannelsLong; // Conversion explicite de long en int
+            
             if (inputChannels != channels) {
                 log.error("Le nombre de canaux du modèle ({}) ne correspond pas au nombre attendu ({}) pour les spectrogrammes", 
                         inputChannels, channels);
