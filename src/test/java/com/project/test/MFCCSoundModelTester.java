@@ -82,7 +82,7 @@ public class MFCCSoundModelTester extends BaseModelTester implements ModelTester
         try {
             // Vérifier que la forme d'entrée est correcte
             long[] inputShape = model.layerInputSize(0);
-            int expectedInputSize = numMfcc * inputLength;
+            long expectedInputSize = numMfcc * inputLength;
             
             if (inputShape[0] != expectedInputSize) {
                 log.error("La taille d'entrée du modèle ({}) ne correspond pas à la taille attendue ({}) pour les MFCC", 
