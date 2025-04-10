@@ -26,6 +26,17 @@ public class ConfigValidator {
     }
     
     /**
+     * Fonction statique publique pour faciliter la validation sans instanciation
+     * 
+     * @param config Configuration à valider 
+     * @return true si la configuration est valide, false sinon
+     */
+    public static boolean validateStaticConfig(Properties config) {
+        ConfigValidator validator = new ConfigValidator();
+        return validator.validateConfig(config);
+    }
+    
+    /**
      * Valide la configuration de base
      */
     public boolean validateBaseConfig(Properties config) {
@@ -111,7 +122,36 @@ public class ConfigValidator {
      */
     public boolean validateSoundModelConfig(Properties config) {
         logger.info("Validation de la configuration des modèles de son...");
-        // Ajouter validation spécifique si nécessaire
-        return true;
+        boolean isValid = true;
+        
+        // Vérifier que le nombre de classes est valide (>=2)
+        try {
+            String numClassesStr = config.getProperty("sound.model.num.classes", "0");
+            int numClasses = Integer.parseInt(numClassesStr);
+            if (numClasses < 2) {
+                logger.error("Nombre de classes pour le modèle de son invalide : {}, doit être >= 2", numClasses);
+                isValid = false;
+            }
+        } catch (NumberFormatException e) {
+            logger.error("Le nombre de classes pour le modèle de son n'est pas un nombre valide");
+            isValid = false;
+        }
+        
+        // Vérifier le type d'entraîneur de son
+        String trainerType = config.getProperty("sound.trainer.type", "MFCC");
+        if (!isValidSoundTrainerType(trainerType)) {
+            logger.warn("Type d'entraîneur de son inconnu : {}, sera traité comme MFCC", trainerType);
+        }
+        
+        return isValid;
+    }
+    
+    /**
+     * Vérifie si le type d'entraîneur de son est valide
+     */
+    private boolean isValidSoundTrainerType(String trainerType) {
+        return "MFCC".equals(trainerType) || 
+               "SPECTROGRAM".equals(trainerType) || 
+               "SPECTROGRAM_VGG16".equals(trainerType);
     }
 }
