@@ -9,6 +9,7 @@ public class EvaluationMetrics {
     private double recall;
     private double f1Score;
     private long timeInMs;
+    private int epoch;
     private Map<Integer, ClassMetrics> classMetrics;
     
     public EvaluationMetrics() {
@@ -26,6 +27,12 @@ public class EvaluationMetrics {
     public EvaluationMetrics(double accuracy, double precision, double recall, double f1Score, long timeInMs) {
         this(accuracy, precision, recall, f1Score);
         this.timeInMs = timeInMs;
+    }
+    
+    // Constructeur complet avec epoch
+    public EvaluationMetrics(int epoch, double accuracy, double precision, double recall, double f1Score, long timeInMs) {
+        this(accuracy, precision, recall, f1Score, timeInMs);
+        this.epoch = epoch;
     }
     
     // Getters et setters
@@ -70,7 +77,29 @@ public class EvaluationMetrics {
         this.timeInMs = timeInMs;
     }
     
+    // Alias pour getTimeInMs pour la compatibilité
+    public long getTrainingTime() {
+        return timeInMs;
+    }
+    
+    public void setTrainingTime(long timeInMs) {
+        this.timeInMs = timeInMs;
+    }
+    
+    public int getEpoch() {
+        return epoch;
+    }
+    
+    public void setEpoch(int epoch) {
+        this.epoch = epoch;
+    }
+    
     public Map<Integer, ClassMetrics> getClassMetrics() {
+        return classMetrics;
+    }
+    
+    // Alias pour getClassMetrics pour la compatibilité
+    public Map<Integer, ClassMetrics> getPerClassMetrics() {
         return classMetrics;
     }
     
@@ -79,6 +108,12 @@ public class EvaluationMetrics {
     }
     
     public void addClassMetrics(int classIndex, ClassMetrics metrics) {
+        this.classMetrics.put(classIndex, metrics);
+    }
+    
+    // Surcharge pour addClassMetrics avec les valeurs directes
+    public void addClassMetrics(int classIndex, double precision, double recall, double f1Score) {
+        ClassMetrics metrics = new ClassMetrics(classIndex, "Class-" + classIndex, precision, recall, f1Score);
         this.classMetrics.put(classIndex, metrics);
     }
     
