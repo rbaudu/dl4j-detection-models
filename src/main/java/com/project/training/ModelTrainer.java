@@ -97,7 +97,7 @@ public abstract class ModelTrainer {
         }
         
         // Ajouter le tracker de métriques comme listener
-        model.setListeners(new ScoreIterationWithLoggingListener(10), metricsTracker);
+        model.setListeners(new ScoreIterationListener(10), metricsTracker);
         
         log.info("Début de l'entraînement pour {} époques...", numEpochs);
         
@@ -197,7 +197,7 @@ public abstract class ModelTrainer {
         metricsTracker = new MetricsTracker(testIterator, evaluationFrequency, outputDir, modelName);
         
         // Ajouter le tracker de métriques comme listener
-        model.setListeners(new ScoreIterationWithLoggingListener(10), metricsTracker);
+        model.setListeners(new ScoreIterationListener(10), metricsTracker);
         
         log.info("Début de l'entraînement pour {} époques...", numEpochs);
         
