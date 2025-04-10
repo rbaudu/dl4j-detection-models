@@ -365,7 +365,7 @@ public class SpectrogramSoundTrainer extends BaseSoundTrainer {
     }
     
     @Override
-    protected MultiLayerNetwork getModel() {
+    public MultiLayerNetwork getModel() {
         // Initialiser le modèle si ce n'est pas déjà fait
         if (model == null) {
             initializeModel();
