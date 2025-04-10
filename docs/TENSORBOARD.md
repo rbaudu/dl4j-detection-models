@@ -14,6 +14,8 @@ TensorBoard est un outil de visualisation conçu à l'origine pour TensorFlow, m
 
 ## Configuration de TensorBoard
 
+Pour installer et configurer TensorBoard, consultez le guide [Installation et configuration de TensorBoard](TENSORBOARD_INSTALL.md).
+
 ### Paramètres dans application.properties
 
 L'exportation vers TensorBoard est configurée dans le fichier `application.properties` :
@@ -188,8 +190,23 @@ Par défaut, TensorBoard sera accessible à l'adresse [http://localhost:6006](ht
 Une fois TensorBoard lancé, vous pouvez accéder à plusieurs onglets :
 
 1. **Scalars** : Visualisation des métriques numériques au fil du temps (accuracy, loss, etc.)
+
+   <!-- Ajouter une capture d'écran réelle de TensorBoard ici -->
+   <!-- ![TensorBoard Scalars](images/tensorboard_scalars.png) -->
+   <!-- *Exemple de visualisation des métriques d'accuracy, loss, precision et recall au fil des époques* -->
+
 2. **Images** : Visualisation des matrices de confusion exportées
+
+   <!-- Ajouter une capture d'écran réelle de TensorBoard ici -->
+   <!-- ![TensorBoard Images](images/tensorboard_confusion_matrix.png) -->
+   <!-- *Exemple de matrice de confusion visualisée dans TensorBoard* -->
+
 3. **Graphs** : Visualisation de la structure du modèle (si exportée)
+
+   <!-- Ajouter une capture d'écran réelle de TensorBoard ici -->
+   <!-- ![TensorBoard Graphs](images/tensorboard_graph.png) -->
+   <!-- *Représentation graphique d'un modèle VGG16 dans TensorBoard* -->
+
 4. **Distributions** : Visualisation de la distribution des poids (si exportée)
 5. **Histograms** : Histogrammes des poids et activations (si exportés)
 
@@ -202,6 +219,10 @@ tensorboard --logdir=output/tensorboard
 ```
 
 Les différents modèles et exécutions seront automatiquement regroupés et pourront être comparés dans l'interface.
+
+<!-- Ajouter une capture d'écran réelle de TensorBoard ici -->
+<!-- ![TensorBoard Model Comparison](images/tensorboard_comparison.png) -->
+<!-- *Comparaison des performances de trois modèles (VGG16, ResNet et MobileNet) sur les mêmes données* -->
 
 ## Exemple d'utilisation
 
@@ -244,3 +265,9 @@ L'utilisation de TensorBoard offre plusieurs avantages par rapport aux visualisa
 3. **Visualisations riches** : Accédez à des visualisations plus avancées comme les graphes de modèles, les distributions, etc.
 4. **Temps réel** : Visualisez les métriques en temps réel pendant l'entraînement
 5. **Partage simplifié** : Les logs peuvent être facilement partagés avec d'autres membres de l'équipe
+
+## Notes sur les captures d'écran
+
+Pour des exemples visuels de l'interface TensorBoard, consultez le répertoire `docs/images/`. Vous pouvez y trouver des exemples des différentes vues de TensorBoard qui vous aideront à comprendre comment interpréter les visualisations.
+
+Pour ajouter vos propres captures d'écran, suivez les instructions dans le fichier `docs/images/tensorboard_placeholder.md`.
