@@ -81,6 +81,7 @@ public class MFCCSoundModelTester extends BaseModelTester implements ModelTester
         // Vérifications spécifiques au modèle MFCC
         try {
             // Vérifier que la forme d'entrée est correcte
+            // Dans DL4J 1.0.0-beta7, nous utilisons layerInputSize() avec l'index de la couche
             long[] inputShape = model.layerInputSize(0);
             long expectedInputSize = numMfcc * inputLength;
             
