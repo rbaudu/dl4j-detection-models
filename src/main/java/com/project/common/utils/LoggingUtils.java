@@ -50,6 +50,31 @@ public class LoggingUtils {
     }
     
     /**
+     * Afficher les informations de structure du modèle
+     */
+    public static void logModelStructureInfo(String modelType, long numParams, int[] inputShape, int numClasses) {
+        logSeparator();
+        logger.info("=== Information sur la structure du modèle {} ===", modelType);
+        logger.info("Nombre total de paramètres: {}", numParams);
+        
+        if (inputShape != null) {
+            StringBuilder shapeStr = new StringBuilder("[");
+            for (int i = 0; i < inputShape.length; i++) {
+                shapeStr.append(inputShape[i]);
+                if (i < inputShape.length - 1) {
+                    shapeStr.append(", ");
+                }
+            }
+            shapeStr.append("]");
+            logger.info("Forme de l'entrée: {}", shapeStr.toString());
+        }
+        
+        logger.info("Nombre de classes en sortie: {}", numClasses);
+        logger.info("=== Fin des informations sur la structure du modèle ===");
+        logSeparator();
+    }
+    
+    /**
      * Affiche les informations de progression d'entraînement
      */
     public static void logTrainingProgress(int epoch, int totalEpochs, double accuracy, double loss, long timeMs) {
