@@ -128,23 +128,24 @@ public class SpectrogramSoundModelTester extends BaseModelTester implements Mode
         try {
             log.info("Architecture du modèle: {}", architecture);
             
-            // Vérifier que la forme d'entrée est correcte
-            // Dans DL4J 1.0.0-beta7, nous utilisons layerInputSize() avec l'index de la couche
-            long[] inputShape = model.layerInputSize(0);
-            
-            if (inputShape[0] != (long)channels || inputShape[1] != (long)height || inputShape[2] != (long)width) {
-                log.error("La forme d'entrée du modèle ([{}, {}, {}]) ne correspond pas à la forme attendue ([{}, {}, {}]) pour les spectrogrammes", 
-                        inputShape[0], inputShape[1], inputShape[2], channels, height, width);
+            // Pour les modèles CNN, la validation est différente car la première couche est convolutive
+            // et les paramètres sont organisés différemment. Nous vérifions simplement que c'est un CNN.
+            String firstLayerType = model.getLayer(0).getClass().getSimpleName();
+            if (!firstLayerType.toLowerCase().contains("convolution")) {
+                log.error("Le premier type de couche ({}) n'est pas convolutif comme attendu pour un spectrogramme", 
+                        firstLayerType);
                 return false;
             }
             
-            // Vérifier que c'est bien un réseau convolutif (la première couche devrait être une conv)
-            String firstLayerType = model.getLayer(0).getClass().getSimpleName();
-            if (!firstLayerType.toLowerCase().contains("convolution")) {
-                log.warn("Le premier type de couche ({}) ne semble pas être convolutif", firstLayerType);
+            // Vérifier que la forme d'entrée correspond au nombre de canaux (en général 1 pour niveaux de gris)
+            int inputChannels = model.getLayer(0).getParam("W").shape()[1]; // Pour les CNN, les canaux sont à l'indice 1
+            if (inputChannels != channels) {
+                log.error("Le nombre de canaux du modèle ({}) ne correspond pas au nombre attendu ({}) pour les spectrogrammes", 
+                        inputChannels, channels);
+                return false;
             }
             
-            log.info("Le modèle de spectrogramme a la bonne forme d'entrée: [{}x{}x{}]", channels, height, width);
+            log.info("Le modèle de spectrogramme est bien un CNN avec {} canaux d'entrée", channels);
             return true;
             
         } catch (Exception e) {
