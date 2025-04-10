@@ -29,9 +29,8 @@ public class Application {
             return;
         }
         
-        // Valider la configuration
-        ConfigValidator validator = new ConfigValidator();
-        if (!validator.validateConfig(config)) {
+        // Valider la configuration en utilisant la méthode statique
+        if (!ConfigValidator.validateStaticConfig(config)) {
             logger.error("La configuration est invalide. Arrêt de l'application.");
             return;
         }
