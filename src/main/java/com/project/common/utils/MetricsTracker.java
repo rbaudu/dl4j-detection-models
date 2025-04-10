@@ -33,6 +33,7 @@ public class MetricsTracker extends BaseTrainingListener {
     private String outputDir;
     private String modelName;
     private boolean exportToTensorBoard;
+    private int currentEpoch;
     
     /**
      * Constructeur de MetricsTracker
@@ -65,6 +66,7 @@ public class MetricsTracker extends BaseTrainingListener {
         this.outputDir = outputDir;
         this.modelName = modelName;
         this.exportToTensorBoard = exportToTensorBoard;
+        this.currentEpoch = 0;
         
         // Créer le répertoire de sortie s'il n'existe pas
         if (outputDir != null) {
@@ -104,7 +106,8 @@ public class MetricsTracker extends BaseTrainingListener {
      */
     @Override
     public void onEpochEnd(Model model) {
-        int currentEpoch = model.getEpochCount();
+        // Incrémenter l'époque manuellement puisque getEpochCount() n'est pas disponible
+        currentEpoch++;
         
         // Évaluer le modèle selon la fréquence spécifiée
         if (currentEpoch % evaluationFrequency == 0) {
@@ -151,8 +154,12 @@ public class MetricsTracker extends BaseTrainingListener {
                 INDArray features = next.getFeatures();
                 INDArray labels = next.getLabels();
                 
-                INDArray output = model.output(features);
-                evaluation.eval(labels, output);
+                // Obtenir la sortie du modèle (adaptation pour différents types de modèles)
+                INDArray output = getModelOutput(model, features);
+                
+                if (output != null) {
+                    evaluation.eval(labels, output);
+                }
             }
             
             // Extraire les métriques
@@ -196,6 +203,37 @@ public class MetricsTracker extends BaseTrainingListener {
     }
     
     /**
+     * Méthode adaptée pour obtenir la sortie du modèle de manière sécurisée
+     * Cette méthode est adaptative pour différents types de modèles DL4J
+     * 
+     * @param model Modèle DL4J à évaluer
+     * @param features Caractéristiques d'entrée
+     * @return Sortie du modèle ou null en cas d'erreur
+     */
+    private INDArray getModelOutput(Model model, INDArray features) {
+        try {
+            // Tenter d'obtenir la sortie via différentes approches
+            if (model instanceof org.deeplearning4j.nn.multilayer.MultiLayerNetwork) {
+                return ((org.deeplearning4j.nn.multilayer.MultiLayerNetwork) model).output(features);
+            } else if (model instanceof org.deeplearning4j.nn.graph.ComputationGraph) {
+                return ((org.deeplearning4j.nn.graph.ComputationGraph) model).output(features)[0];
+            } else {
+                // Méthode générique via réflexion (fallback)
+                try {
+                    java.lang.reflect.Method outputMethod = model.getClass().getMethod("output", INDArray.class);
+                    return (INDArray) outputMethod.invoke(model, features);
+                } catch (Exception e) {
+                    log.error("Impossible d'invoquer la méthode output() via réflexion: {}", e.getMessage());
+                    return null;
+                }
+            }
+        } catch (Exception e) {
+            log.error("Erreur lors de l'obtention de la sortie du modèle: {}", e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
      * Exporte les métriques au format CSV
      * 
      * @throws IOException Si une erreur se produit lors de l'écriture
@@ -232,7 +270,7 @@ public class MetricsTracker extends BaseTrainingListener {
                 writer.write("Class,Precision,Recall,F1Score\n");
                 
                 // Écrire les métriques pour chaque classe
-                for (int classIdx : lastMetrics.getPerClassMetrics().keySet()) {
+                for (Integer classIdx : lastMetrics.getPerClassMetrics().keySet()) {
                     ClassMetrics classMetrics = lastMetrics.getClassMetrics(classIdx);
                     writer.write(String.format("%d,%.6f,%.6f,%.6f\n",
                             classIdx, classMetrics.getPrecision(),
