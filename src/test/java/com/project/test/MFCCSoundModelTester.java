@@ -81,17 +81,18 @@ public class MFCCSoundModelTester extends BaseModelTester implements ModelTester
         // Vérifications spécifiques au modèle MFCC
         try {
             // Vérifier que la forme d'entrée est correcte
-            // Dans DL4J 1.0.0-beta7, nous utilisons layerInputSize() avec l'index de la couche
-            long[] inputShape = model.layerInputSize(0);
+            // Dans DL4J 1.0.0-beta7, obtenons les informations sur le réseau
+            // par une alternative à getLayerInputShape
+            int inputSize = model.getLayer(0).getParam("W").columns();
             long expectedInputSize = numMfcc * inputLength;
             
-            if (inputShape[0] != expectedInputSize) {
+            if (inputSize != expectedInputSize) {
                 log.error("La taille d'entrée du modèle ({}) ne correspond pas à la taille attendue ({}) pour les MFCC", 
-                        inputShape[0], expectedInputSize);
+                        inputSize, expectedInputSize);
                 return false;
             }
             
-            log.info("Le modèle MFCC a la bonne forme d'entrée : {}", inputShape[0]);
+            log.info("Le modèle MFCC a la bonne forme d'entrée : {}", inputSize);
             return true;
             
         } catch (Exception e) {
