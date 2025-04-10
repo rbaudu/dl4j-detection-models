@@ -79,9 +79,9 @@ public class SoundTrainerTest {
         int inputSize = Integer.parseInt(config.getProperty("sound.input.length", "16000")) * 
                         Integer.parseInt(config.getProperty("sound.num.mfcc", "40"));
         
-        int[] inputShape = model.getLayerInputShape(0);
+        long[] inputShape = model.layerInputSize(0);
         assertEquals("La taille d'entrée du modèle devrait correspondre aux paramètres", 
-                inputSize, inputShape[1]);
+                inputSize, inputShape[0]);
     }
     
     @Test
