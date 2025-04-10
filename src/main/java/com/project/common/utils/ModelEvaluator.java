@@ -205,7 +205,12 @@ public class ModelEvaluator {
             for (Integer i : classMetricsMap.keySet()) {
                 EvaluationMetrics.ClassMetrics classMetrics = metrics.getClassMetrics(i);
                 if (classMetrics != null) {
-                    String className = (labels != null && i < labels.size()) ? labels.get(i) : "Classe " + i;
+                    String className;
+                    if (labels != null && i < labels.size()) {
+                        className = labels.get(i.intValue());
+                    } else {
+                        className = "Classe " + i.intValue();
+                    }
                     writer.write(String.format("%s:\n", className));
                     writer.write(String.format("  Precision: %.4f\n", classMetrics.getPrecision()));
                     writer.write(String.format("  Recall: %.4f\n", classMetrics.getRecall()));
@@ -228,7 +233,12 @@ public class ModelEvaluator {
             writer.write("INFORMATIONS SUR LES SEUILS (ROC)\n");
             writer.write("==============================\n");
             for (Integer i : classMetricsMap.keySet()) {
-                String className = (labels != null && i < labels.size()) ? labels.get(i) : "Classe " + i;
+                String className;
+                if (labels != null && i < labels.size()) {
+                    className = labels.get(i.intValue());
+                } else {
+                    className = "Classe " + i.intValue();
+                }
                 double auc = roc.calculateAUC(i);
                 writer.write(String.format("%s (AUC: %.4f)\n", className, auc));
                 
@@ -387,7 +397,12 @@ public class ModelEvaluator {
                 double threshold = getOptimalThreshold(roc, i);
                 double auc = roc.calculateAUC(i);
                 
-                String className = (labels != null && i < labels.size()) ? labels.get(i) : String.valueOf(i);
+                String className;
+                if (labels != null && i < labels.size()) {
+                    className = labels.get(i);
+                } else {
+                    className = String.valueOf(i);
+                }
                 writer.write(String.format("%s,%.6f,%.6f\n", className, threshold, auc));
             }
         }
