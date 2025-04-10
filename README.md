@@ -22,5 +22,7 @@ Plusieurs corrections ont été apportées pour rendre le code compatible avec D
    - Dans `MFCCSoundModelTester.java` : Changement du type `int expectedInputSize` en `long expectedInputSize`
    - Dans `SoundTrainerTest.java` : Changement du type `int inputSize` en `long inputSize`
    - Dans `SpectrogramSoundModelTester.java` : Ajout de casts explicites `(long)channels`, `(long)height`, `(long)width` lors de la comparaison avec les éléments du tableau `long[]`.
+   
+4. Amélioration de la documentation dans le code concernant l'utilisation de `layerInputSize()` pour la compatibilité avec DL4J 1.0.0-beta7.
 
 Ces modifications permettent une compilation réussie des tests unitaires et sont compatibles avec la version beta7 de DL4J.
