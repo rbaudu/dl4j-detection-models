@@ -8,6 +8,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 public class MetricsUtils {
     private static final Logger logger = LoggerFactory.getLogger(MetricsUtils.class);
@@ -45,7 +46,7 @@ public class MetricsUtils {
             for (int i = 0; i < metrics.size(); i++) {
                 EvaluationMetrics metric = metrics.get(i);
                 writer.write(String.format("%d,%.4f,%.4f,%.4f,%.4f,%d\n", 
-                                          i + 1, 
+                                          metric.getEpoch() > 0 ? metric.getEpoch() : i + 1, 
                                           metric.getAccuracy(), 
                                           metric.getPrecision(), 
                                           metric.getRecall(), 
@@ -120,12 +121,100 @@ public class MetricsUtils {
     }
     
     /**
+     * Méthode compatible avec les erreurs dans MetricsExampleUsage
+     */
+    public static boolean validateMetrics(EvaluationMetrics metrics, Properties config) {
+        // Obtenir les seuils depuis la configuration ou utiliser les valeurs par défaut
+        double accuracyThreshold = Double.parseDouble(config.getProperty("metrics.threshold.accuracy", "0.7"));
+        double precisionThreshold = Double.parseDouble(config.getProperty("metrics.threshold.precision", "0.7"));
+        double recallThreshold = Double.parseDouble(config.getProperty("metrics.threshold.recall", "0.7"));
+        double f1Threshold = Double.parseDouble(config.getProperty("metrics.threshold.f1", "0.7"));
+        
+        return checkMetricsThresholds(metrics, accuracyThreshold, precisionThreshold, recallThreshold, f1Threshold);
+    }
+    
+    /**
+     * Génère un rapport de comparaison entre plusieurs ensembles de métriques
+     */
+    public static boolean generateModelComparisonReport(EvaluationMetrics[] metricsArray, 
+                                                      String[] modelNames,
+                                                      String outputPath) {
+        if (metricsArray == null || metricsArray.length == 0 || 
+            modelNames == null || modelNames.length != metricsArray.length) {
+            logger.warn("Paramètres invalides pour la comparaison de modèles");
+            return false;
+        }
+        
+        File outputFile = new File(outputPath);
+        File parentDir = outputFile.getParentFile();
+        if (parentDir != null && !parentDir.exists()) {
+            parentDir.mkdirs();
+        }
+        
+        try (FileWriter writer = new FileWriter(outputFile)) {
+            writer.write("=== Rapport de comparaison des modèles ===\n\n");
+            
+            writer.write("Modèle        | Accuracy | Precision | Recall  | F1-Score\n");
+            writer.write("--------------|----------|-----------|---------|----------\n");
+            
+            for (int i = 0; i < metricsArray.length; i++) {
+                EvaluationMetrics metrics = metricsArray[i];
+                writer.write(String.format("%-14s| %.4f   | %.4f    | %.4f   | %.4f\n", 
+                                         modelNames[i],
+                                         metrics.getAccuracy(), 
+                                         metrics.getPrecision(), 
+                                         metrics.getRecall(), 
+                                         metrics.getF1Score()));
+            }
+            
+            // Identifier le meilleur modèle pour chaque métrique
+            int bestAccuracyIdx = findBestModelIndex(metricsArray, m -> m.getAccuracy());
+            int bestPrecisionIdx = findBestModelIndex(metricsArray, m -> m.getPrecision());
+            int bestRecallIdx = findBestModelIndex(metricsArray, m -> m.getRecall());
+            int bestF1Idx = findBestModelIndex(metricsArray, m -> m.getF1Score());
+            
+            writer.write("\n=== Modèles les plus performants ===\n");
+            writer.write("- Meilleure Accuracy:  " + modelNames[bestAccuracyIdx] + " (" + metricsArray[bestAccuracyIdx].getAccuracy() + ")\n");
+            writer.write("- Meilleure Precision: " + modelNames[bestPrecisionIdx] + " (" + metricsArray[bestPrecisionIdx].getPrecision() + ")\n");
+            writer.write("- Meilleur Recall:     " + modelNames[bestRecallIdx] + " (" + metricsArray[bestRecallIdx].getRecall() + ")\n");
+            writer.write("- Meilleur F1-Score:   " + modelNames[bestF1Idx] + " (" + metricsArray[bestF1Idx].getF1Score() + ")\n");
+            
+            logger.info("Rapport de comparaison généré avec succès dans {}", outputFile.getAbsolutePath());
+            return true;
+        } catch (IOException e) {
+            logger.error("Erreur lors de la génération du rapport de comparaison : {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Trouve l'indice du modèle avec la meilleure valeur pour une métrique donnée
+     */
+    private static int findBestModelIndex(EvaluationMetrics[] metricsArray, MetricExtractor extractor) {
+        int bestIdx = 0;
+        double bestValue = extractor.extract(metricsArray[0]);
+        
+        for (int i = 1; i < metricsArray.length; i++) {
+            double value = extractor.extract(metricsArray[i]);
+            if (value > bestValue) {
+                bestValue = value;
+                bestIdx = i;
+            }
+        }
+        
+        return bestIdx;
+    }
+    
+    /**
+     * Interface fonctionnelle pour extraire une métrique
+     */
+    @FunctionalInterface
+    private interface MetricExtractor {
+        double extract(EvaluationMetrics metrics);
+    }
+    
+    /**
      * Génère un rapport de comparaison entre deux ensembles de métriques
-     * 
-     * @param baselineMetrics Métriques de base
-     * @param newMetrics Nouvelles métriques
-     * @param outputPath Chemin du fichier de sortie
-     * @return true si la génération a réussi, false sinon
      */
     public static boolean generateComparisonReport(EvaluationMetrics baselineMetrics, 
                                                  EvaluationMetrics newMetrics, 
@@ -175,47 +264,6 @@ public class MetricsUtils {
                                       newMetrics.getF1Score(), 
                                       f1Diff,
                                       f1Diff > 0 ? "Oui" : "Non"));
-            
-            // Comparaison par classe si disponible
-            Map<Integer, ClassMetrics> baselineClassMetrics = baselineMetrics.getClassMetrics();
-            Map<Integer, ClassMetrics> newClassMetrics = newMetrics.getClassMetrics();
-            
-            if (!baselineClassMetrics.isEmpty() && !newClassMetrics.isEmpty()) {
-                writer.write("\n=== Comparaison des métriques par classe ===\n\n");
-                
-                for (Integer classIdx : baselineClassMetrics.keySet()) {
-                    if (newClassMetrics.containsKey(classIdx)) {
-                        ClassMetrics baseline = baselineClassMetrics.get(classIdx);
-                        ClassMetrics newer = newClassMetrics.get(classIdx);
-                        
-                        writer.write(String.format("\nClasse %d (%s):\n", 
-                                                 classIdx, 
-                                                 baseline.getClassName() != null ? baseline.getClassName() : "Inconnue"));
-                        
-                        double classPrecisionDiff = newer.getPrecision() - baseline.getPrecision();
-                        double classRecallDiff = newer.getRecall() - baseline.getRecall();
-                        double classF1Diff = newer.getF1Score() - baseline.getF1Score();
-                        
-                        writer.write(String.format("Precision: %.4f -> %.4f (%+.4f) %s\n", 
-                                                 baseline.getPrecision(), 
-                                                 newer.getPrecision(), 
-                                                 classPrecisionDiff,
-                                                 classPrecisionDiff > 0 ? "✓" : "✗"));
-                        
-                        writer.write(String.format("Recall: %.4f -> %.4f (%+.4f) %s\n", 
-                                                 baseline.getRecall(), 
-                                                 newer.getRecall(), 
-                                                 classRecallDiff,
-                                                 classRecallDiff > 0 ? "✓" : "✗"));
-                        
-                        writer.write(String.format("F1-Score: %.4f -> %.4f (%+.4f) %s\n", 
-                                                 baseline.getF1Score(), 
-                                                 newer.getF1Score(), 
-                                                 classF1Diff,
-                                                 classF1Diff > 0 ? "✓" : "✗"));
-                    }
-                }
-            }
             
             logger.info("Rapport de comparaison généré avec succès dans {}", outputFile.getAbsolutePath());
             return true;
