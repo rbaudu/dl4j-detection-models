@@ -42,6 +42,36 @@ public class ActivityModel {
     }
     
     /**
+     * Initialise le modèle.
+     * Cette méthode est un point d'entrée unique pour initialiser le modèle
+     * en utilisant soit les paramètres par défaut, soit un modèle existant.
+     * 
+     * @return true si l'initialisation a réussi, false sinon
+     */
+    public boolean initializeModel() {
+        try {
+            // Vérifié si on doit charger un modèle existant ou en créer un nouveau
+            String modelPath = config.getProperty("activity.model.path", "models/activity_model.zip");
+            File modelFile = new File(modelPath);
+            
+            if (modelFile.exists() && Boolean.parseBoolean(config.getProperty("activity.model.load.existing", "true"))) {
+                // Charger un modèle existant
+                log.info("Chargement d'un modèle existant depuis {}", modelPath);
+                loadModel(modelPath);
+            } else {
+                // Initialiser un nouveau modèle
+                log.info("Initialisation d'un nouveau modèle");
+                initNewModel();
+            }
+            
+            return true;
+        } catch (Exception e) {
+            log.error("Erreur lors de l'initialisation du modèle: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
      * Initialise un nouveau modèle.
      * Selon la configuration, utilise soit un modèle simple, soit un modèle de transfert d'apprentissage.
      */
