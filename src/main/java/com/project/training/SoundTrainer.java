@@ -14,6 +14,13 @@ import java.util.Random;
 public abstract class SoundTrainer {
     private static final Logger logger = LoggerFactory.getLogger(SoundTrainer.class);
     
+    // Types d'entraîneurs disponibles
+    public enum SoundTrainerType {
+        MFCC,
+        SPECTROGRAM,
+        SPECTROGRAM_VGG16
+    }
+    
     protected Properties config;
     protected int numClasses;
     protected int batchSize;
@@ -24,6 +31,7 @@ public abstract class SoundTrainer {
     protected String modelType;
     protected String dataDir;
     protected String modelOutputPath;
+    protected MultiLayerNetwork model;
     
     /**
      * Constructeur avec configuration
@@ -65,6 +73,15 @@ public abstract class SoundTrainer {
     }
     
     /**
+     * Méthode pour entraîner le modèle avec une source de données audio
+     */
+    public MultiLayerNetwork trainOnSoundData(String dataPath, double validationSplit) {
+        logger.info("Entraînement du modèle sur les données audio: {}", dataPath);
+        // Implémentation spécifique à chaque sous-classe
+        return train();
+    }
+    
+    /**
      * Entraîne le modèle avec les données disponibles
      */
     public MultiLayerNetwork train() {
@@ -72,13 +89,23 @@ public abstract class SoundTrainer {
         preprocessData();
         
         // Créer le modèle
-        MultiLayerNetwork model = createModel();
+        model = createModel();
         
         // Afficher les informations sur le modèle et les paramètres d'entraînement
         logTrainingInfo();
         
         // TODO: Implémenter l'entraînement réel du modèle
         
+        return model;
+    }
+    
+    /**
+     * Récupère le modèle entraîné
+     */
+    public MultiLayerNetwork getModel() {
+        if (model == null) {
+            logger.warn("Le modèle n'a pas encore été entraîné");
+        }
         return model;
     }
     
