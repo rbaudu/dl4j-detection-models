@@ -14,15 +14,16 @@ Ce projet a été migré vers DL4J 1.0.0-beta7.
 
 Plusieurs corrections ont été apportées pour rendre le code compatible avec DL4J 1.0.0-beta7 :
 
-1. Changement de visibilité de la méthode `getModel()` dans `MFCCSoundTrainer` et `SpectrogramSoundTrainer` de 'protected' à 'public' pour permettre l'accès depuis les tests unitaires.
+1. **Accès aux méthodes** :
+   - Changement de visibilité de la méthode `getModel()` dans `MFCCSoundTrainer` et `SpectrogramSoundTrainer` de 'protected' à 'public' pour permettre l'accès depuis les tests unitaires.
 
-2. Mise à jour de la méthode `getLayerInputShape(int)` qui n'existe plus dans DL4J 1.0.0-beta7, remplacée par `layerInputSize(int)` qui retourne un `long[]` au lieu d'un `int[]`.
+2. **Compatibilité de l'API** :
+   - Remplacement de la méthode `getLayerInputShape(int)` qui n'existe plus dans DL4J 1.0.0-beta7 par une approche plus robuste utilisant la méthode `getParam("W")` pour obtenir les informations sur la forme d'entrée des couches :
+     - Pour les couches denses : utilisation de `model.getLayer(0).getParam("W").columns()` pour obtenir le nombre de colonnes de la matrice de poids
+     - Pour les couches convolutives : utilisation de `model.getLayer(0).getParam("W").shape()[1]` pour obtenir le nombre de canaux d'entrée
 
-3. Correction des types dans tous les fichiers de test pour gérer le retour de type `long[]` au lieu de `int[]` :
-   - Dans `MFCCSoundModelTester.java` : Changement du type `int expectedInputSize` en `long expectedInputSize`
-   - Dans `SoundTrainerTest.java` : Changement du type `int inputSize` en `long inputSize`
-   - Dans `SpectrogramSoundModelTester.java` : Ajout de casts explicites `(long)channels`, `(long)height`, `(long)width` lors de la comparaison avec les éléments du tableau `long[]`.
-   
-4. Amélioration de la documentation dans le code concernant l'utilisation de `layerInputSize()` pour la compatibilité avec DL4J 1.0.0-beta7.
+3. **Adaptation des tests** :
+   - Modification des tests pour utiliser les nouvelles méthodes d'accès aux formes d'entrée des couches
+   - Dans `SpectrogramSoundModelTester.java`, simplification de la vérification pour se concentrer sur le nombre de canaux d'entrée et le type de couche
 
 Ces modifications permettent une compilation réussie des tests unitaires et sont compatibles avec la version beta7 de DL4J.
