@@ -105,9 +105,10 @@ public class ModelEvaluator {
         
         // Ajouter les métriques par classe (si disponibles)
         try {
-            int numClasses = eval.getClasses().size();
-            for (int i = 0; i < numClasses; i++) {
-                String className = eval.getClassLabel(i);
+            // Utiliser getLabels() au lieu de getClasses()
+            List<String> labels = eval.getLabels();
+            for (int i = 0; i < labels.size(); i++) {
+                String className = labels.get(i);
                 double classPrecision = eval.precision(i);
                 double classRecall = eval.recall(i);
                 double classF1 = eval.f1(i);
@@ -126,7 +127,7 @@ public class ModelEvaluator {
                 metrics.addClassMetrics(i, classMetrics);
             }
         } catch (Exception e) {
-            logger.warn("Erreur lors de l'accès aux métriques par classe: {}", e.getMessage());
+            logger.warn("Erreur lors de l'accès aux classes de l'évaluation: {}", e.getMessage());
         }
         
         return metrics;
@@ -201,7 +202,7 @@ public class ModelEvaluator {
                 return;
             }
             
-            // Exporter les résultats de confusion sans accéder directement à la matrice
+            // Exporter les résultats de confusion sous forme de texte
             String timestamp = dateFormat.format(new Date());
             File outputFile = new File(metricsDir, modelName + "_confusion_" + timestamp + ".txt");
             
