@@ -174,7 +174,7 @@ public class MetricsTracker extends BaseTrainingListener {
             );
             
             // Ajouter les métriques par classe
-            int numClasses = evaluation.getNumRowCounter().rows();
+            int numClasses = evaluation.getNumRowCounter();
             for (int i = 0; i < numClasses; i++) {
                 double classPrecision = evaluation.precision(i);
                 double classRecall = evaluation.recall(i);

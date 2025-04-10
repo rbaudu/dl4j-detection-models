@@ -118,12 +118,12 @@ public class TensorBoardExporterTest {
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 10; j++) {
                 // Simuler 10 prédictions correctes pour chaque classe
-                eval.incrementTrue(i);
+                eval.incrementTruePositives(i);
             }
             
             for (int j = 0; j < 2; j++) {
                 // Simuler 2 prédictions incorrectes pour chaque classe
-                eval.incrementFalse(i, (i + 1) % 3);
+                eval.incrementFalseNegatives(j);
             }
         }
         
