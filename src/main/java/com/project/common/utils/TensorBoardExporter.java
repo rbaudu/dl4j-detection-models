@@ -133,7 +133,7 @@ public class TensorBoardExporter {
         
         // Construire la configuration multicouche
         MultiLayerConfiguration.Builder layerBuilder = new MultiLayerConfiguration.Builder();
-        layerBuilder.setInputTypes(org.deeplearning4j.nn.conf.inputs.InputType.feedForward(10));
+        // Supprimé la ligne setInputTypes qui n'est pas disponible dans cette version
         
         return layerBuilder.build();
     }
