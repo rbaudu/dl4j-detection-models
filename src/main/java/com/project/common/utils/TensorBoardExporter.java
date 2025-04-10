@@ -1,5 +1,7 @@
 package com.project.common.utils;
 
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
+import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.ui.api.UIServer;
 import org.deeplearning4j.ui.model.stats.StatsListener;
 import org.deeplearning4j.ui.model.storage.FileStatsStorage;
@@ -120,6 +122,23 @@ public class TensorBoardExporter {
     }
     
     /**
+     * Crée une configuration minimale pour un modèle fictif utilisé pour exporter les métriques
+     * 
+     * @return Configuration pour un modèle minimal
+     */
+    private static MultiLayerConfiguration createDummyConfig() {
+        // Créer une configuration minimale avec un builder plutôt que d'utiliser builder() directement
+        NeuralNetConfiguration.Builder builder = new NeuralNetConfiguration.Builder();
+        NeuralNetConfiguration conf = builder.build();
+        
+        // Construire la configuration multicouche
+        MultiLayerConfiguration.Builder layerBuilder = new MultiLayerConfiguration.Builder();
+        layerBuilder.setInputTypes(org.deeplearning4j.nn.conf.inputs.InputType.feedForward(10));
+        
+        return layerBuilder.build();
+    }
+    
+    /**
      * Exporte une liste de métriques d'évaluation vers TensorBoard.
      * Implémentation adaptée pour utiliser les fonctionnalités disponibles dans la version actuelle.
      * 
@@ -141,7 +160,7 @@ public class TensorBoardExporter {
             // Dans la version actuelle, nous utilisons une approche différente
             org.deeplearning4j.nn.multilayer.MultiLayerNetwork dummyModel = 
                 new org.deeplearning4j.nn.multilayer.MultiLayerNetwork(
-                    org.deeplearning4j.nn.conf.MultiLayerConfiguration.builder().build());
+                    createDummyConfig());
             
             // Créer un listener pour envoyer les données
             StatsListener listener = null;
@@ -161,7 +180,7 @@ public class TensorBoardExporter {
                 int iteration = metric.getEpoch();
                 
                 // Simuler un événement d'itération pour déclencher la collecte de statistiques
-                listener.iterationDone(dummyModel, iteration);
+                listener.iterationDone(dummyModel, iteration, iteration);
                 
                 // Ajouter les métriques sous forme de scores (n'utilise pas l'API Storage directement)
                 double[] scores = {
@@ -174,7 +193,7 @@ public class TensorBoardExporter {
                 dummyModel.setScore(metric.getF1Score()); // Utilise F1 comme score principal
                 
                 // Simuler un événement pour déclencher la mise à jour des stats
-                listener.iterationDone(dummyModel, iteration + 1);
+                listener.iterationDone(dummyModel, iteration + 1, iteration + 1);
             }
             
             log.info("Métriques exportées vers TensorBoard pour le modèle {}", modelName);
@@ -208,7 +227,7 @@ public class TensorBoardExporter {
             // Créer un modèle de test pour l'export
             org.deeplearning4j.nn.multilayer.MultiLayerNetwork dummyModel = 
                 new org.deeplearning4j.nn.multilayer.MultiLayerNetwork(
-                    org.deeplearning4j.nn.conf.MultiLayerConfiguration.builder().build());
+                    createDummyConfig());
             
             // Créer un listener pour envoyer les données
             StatsListener listener = null;
@@ -227,7 +246,7 @@ public class TensorBoardExporter {
             dummyModel.setScore(evaluation.f1());
             
             // Déclencher l'événement de fin d'itération pour enregistrer les statistiques
-            listener.iterationDone(dummyModel, iteration);
+            listener.iterationDone(dummyModel, iteration, iteration);
             
             log.info("Évaluation exportée vers TensorBoard pour le modèle {}", modelName);
             return true;
