@@ -129,6 +129,7 @@ public class SpectrogramSoundModelTester extends BaseModelTester implements Mode
             log.info("Architecture du modèle: {}", architecture);
             
             // Vérifier que la forme d'entrée est correcte
+            // Dans DL4J 1.0.0-beta7, nous utilisons layerInputSize() avec l'index de la couche
             long[] inputShape = model.layerInputSize(0);
             
             if (inputShape[0] != (long)channels || inputShape[1] != (long)height || inputShape[2] != (long)width) {
