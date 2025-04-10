@@ -5,7 +5,7 @@ import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
+import java.util.Properties;
 
 /**
  * Utilitaires pour la journalisation
@@ -21,21 +21,23 @@ public class LoggingUtils {
     }
     
     /**
-     * Affiche les informations sur un modèle
+     * Affiche les informations sur un modèle (version adaptée aux APIs disponibles)
      */
     public static void logModelInfo(MultiLayerNetwork model, String modelType, String architecture) {
         logSeparator();
         logger.info("=== Information sur la structure du modèle {} ({}) ===", modelType, architecture);
         logger.info("Nombre total de paramètres: {}", model.numParams());
         
-        // Afficher la forme de l'entrée
-        if (model.getLayerWiseConfigurations().getInputType() != null) {
-            logger.info("Forme de l'entrée: {}", Arrays.toString(model.getLayerWiseConfigurations().getInputType().getShape()));
+        // Adaptation pour l'accès à la forme d'entrée (sans InputType)
+        if (model.getLayerWiseConfigurations() != null) {
+            logger.info("Configuration du modèle: {}", model.getLayerWiseConfigurations().toString());
         }
         
         // Afficher le nombre de classes en sortie
         Layer outputLayer = model.getLayer(model.getnLayers() - 1);
-        logger.info("Nombre de classes en sortie: {}", outputLayer.getParam("W").size(0));
+        if (outputLayer != null && outputLayer.getParam("W") != null) {
+            logger.info("Nombre de classes en sortie: {}", outputLayer.getParam("W").size(0));
+        }
         
         // Afficher les formes des couches
         for (int i = 0; i < model.getnLayers(); i++) {
@@ -86,5 +88,55 @@ public class LoggingUtils {
                            element.getFileName(), element.getLineNumber());
             }
         }
+    }
+    
+    /**
+     * Affiche les paramètres d'entraînement pour les modèles de présence
+     */
+    public static void logPresenceTrainingParameters(Properties config) {
+        logSeparator();
+        logger.info("=== Paramètres d'entraînement du modèle de présence ===");
+        logger.info("Type de modèle: {}", config.getProperty("presence.model.type", "STANDARD"));
+        logger.info("Nombre de classes: {}", config.getProperty("presence.model.num.classes", "2"));
+        logger.info("Taille du lot: {}", config.getProperty("training.batch.size", "32"));
+        logger.info("Nombre d'époques: {}", config.getProperty("training.epochs", "100"));
+        logger.info("Taux d'apprentissage: {}", config.getProperty("training.learning.rate", "0.0001"));
+        logger.info("=== Fin des paramètres d'entraînement ===");
+        logSeparator();
+    }
+    
+    /**
+     * Affiche les paramètres d'entraînement pour les modèles d'activité
+     */
+    public static void logActivityTrainingParameters(Properties config) {
+        logSeparator();
+        logger.info("=== Paramètres d'entraînement du modèle d'activité ===");
+        logger.info("Type de modèle: {}", config.getProperty("activity.model.type", "STANDARD"));
+        logger.info("Nombre de classes: {}", config.getProperty("activity.model.num.classes", "5"));
+        logger.info("Dimensions d'image: {}x{}", 
+                  config.getProperty("activity.model.image.width", "224"),
+                  config.getProperty("activity.model.image.height", "224"));
+        logger.info("Taille du lot: {}", config.getProperty("training.batch.size", "32"));
+        logger.info("Nombre d'époques: {}", config.getProperty("training.epochs", "100"));
+        logger.info("Taux d'apprentissage: {}", config.getProperty("training.learning.rate", "0.0001"));
+        logger.info("=== Fin des paramètres d'entraînement ===");
+        logSeparator();
+    }
+    
+    /**
+     * Affiche les paramètres d'entraînement pour les modèles de son
+     */
+    public static void logSoundTrainingParameters(Properties config) {
+        logSeparator();
+        logger.info("=== Paramètres d'entraînement du modèle de son ===");
+        logger.info("Type de modèle: {}", config.getProperty("sound.model.type", "STANDARD"));
+        logger.info("Nombre de classes: {}", config.getProperty("sound.model.num.classes", "5"));
+        logger.info("Longueur d'entrée: {}", config.getProperty("sound.input.length", "16000"));
+        logger.info("Nombre de MFCC: {}", config.getProperty("sound.num.mfcc", "40"));
+        logger.info("Taille du lot: {}", config.getProperty("training.batch.size", "32"));
+        logger.info("Nombre d'époques: {}", config.getProperty("training.epochs", "100"));
+        logger.info("Taux d'apprentissage: {}", config.getProperty("training.learning.rate", "0.0001"));
+        logger.info("=== Fin des paramètres d'entraînement ===");
+        logSeparator();
     }
 }
