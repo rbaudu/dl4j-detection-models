@@ -76,7 +76,7 @@ public class SoundTrainerTest {
         assertNotNull("Le modèle devrait être créé", model);
         
         // Vérifier les propriétés du modèle
-        int inputSize = Integer.parseInt(config.getProperty("sound.input.length", "16000")) * 
+        long inputSize = Integer.parseInt(config.getProperty("sound.input.length", "16000")) * 
                         Integer.parseInt(config.getProperty("sound.num.mfcc", "40"));
         
         long[] inputShape = model.layerInputSize(0);
