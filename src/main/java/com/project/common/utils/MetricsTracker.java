@@ -273,7 +273,7 @@ public class MetricsTracker extends BaseTrainingListener {
                 for (Integer classIdx : lastMetrics.getPerClassMetrics().keySet()) {
                     ClassMetrics classMetrics = lastMetrics.getClassMetrics(classIdx);
                     writer.write(String.format("%d,%.6f,%.6f,%.6f\n",
-                            classIdx, classMetrics.getPrecision(),
+                            classIdx.intValue(), classMetrics.getPrecision(),
                             classMetrics.getRecall(), classMetrics.getF1Score()));
                 }
             }
