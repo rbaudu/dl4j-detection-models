@@ -26,18 +26,42 @@ public class SoundTrainerTest {
     
     @Before
     public void setUp() {
-        // Charger la configuration
+        // Charger la configuration spécifique pour les tests
         config = new Properties();
         try {
-            config.load(new FileInputStream("config/application.properties"));
+            // Essayer d'abord de charger le fichier de test
+            File testConfig = new File("config/test-application.properties");
+            if (testConfig.exists()) {
+                log.info("Chargement de la configuration de test");
+                config.load(new FileInputStream(testConfig));
+            } else {
+                log.info("Configuration de test non trouvée, chargement de la configuration standard");
+                config.load(new FileInputStream("config/application.properties"));
+            }
             
-            // Configurer pour les tests
-            config.setProperty("sound.model.num.classes", "5");  // Réduire pour les tests
-            config.setProperty("test.num.samples", "10");  // Réduire pour les tests
-            config.setProperty("training.epochs", "1");  // Juste un seul epoch pour les tests
+            // S'assurer que les paramètres nécessaires pour les tests sont définis
+            ensureConfigProperty("sound.model.num.classes", "5");
+            ensureConfigProperty("sound.input.length", "16000");
+            ensureConfigProperty("sound.num.mfcc", "40");
+            ensureConfigProperty("test.num.samples", "10");
+            ensureConfigProperty("training.epochs", "1");
+            
+            // Afficher les valeurs clés pour le débogage
+            log.info("Configuration chargée:");
+            log.info("sound.input.length = {}", config.getProperty("sound.input.length"));
+            log.info("sound.num.mfcc = {}", config.getProperty("sound.num.mfcc"));
+            log.info("sound.model.num.classes = {}", config.getProperty("sound.model.num.classes"));
             
         } catch (IOException e) {
             log.warn("Configuration par défaut utilisée", e);
+        }
+    }
+    
+    // Helper pour s'assurer qu'une propriété existe
+    private void ensureConfigProperty(String key, String defaultValue) {
+        if (!config.containsKey(key)) {
+            log.info("Ajout de la propriété manquante: {} = {}", key, defaultValue);
+            config.setProperty(key, defaultValue);
         }
     }
     
@@ -68,6 +92,16 @@ public class SoundTrainerTest {
         MFCCSoundTrainer trainer = new MFCCSoundTrainer(config);
         assertNotNull("Le MFCCSoundTrainer devrait être créé", trainer);
         
+        // Vérifier les valeurs des paramètres
+        int expectedInputLength = Integer.parseInt(config.getProperty("sound.input.length", "16000"));
+        int expectedNumMfcc = Integer.parseInt(config.getProperty("sound.num.mfcc", "40"));
+        long expectedInputSize = expectedInputLength * expectedNumMfcc;
+        
+        log.info("Test: MFCCSoundTrainer - Paramètres attendus:");
+        log.info("inputLength = {}", expectedInputLength);
+        log.info("numMfcc = {}", expectedNumMfcc);
+        log.info("inputSize (calculé) = {}", expectedInputSize);
+        
         // Initialiser le modèle
         trainer.initializeModel();
         
@@ -75,14 +109,13 @@ public class SoundTrainerTest {
         MultiLayerNetwork model = trainer.getModel();
         assertNotNull("Le modèle devrait être créé", model);
         
-        // Vérifier les propriétés du modèle
-        long inputSize = Integer.parseInt(config.getProperty("sound.input.length", "16000")) * 
-                        Integer.parseInt(config.getProperty("sound.num.mfcc", "40"));
+        // Obtenir la taille d'entrée réelle du modèle
+        int actualInputSize = model.getLayer(0).getParam("W").columns();
+        log.info("Taille d'entrée réelle du modèle: {}", actualInputSize);
         
-        // Dans DL4J 1.0.0-beta7, utilisons une autre approche pour obtenir la taille d'entrée
-        int modelInputSize = model.getLayer(0).getParam("W").columns();
+        // Vérifier que la taille d'entrée correspond aux attentes
         assertEquals("La taille d'entrée du modèle devrait correspondre aux paramètres", 
-                (int)inputSize, modelInputSize);
+                (int)expectedInputSize, actualInputSize);
     }
     
     @Test
