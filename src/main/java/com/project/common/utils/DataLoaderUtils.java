@@ -84,10 +84,19 @@ public class DataLoaderUtils {
         
         // Extraire les sous-ensembles
         for (int i = 0; i < numExamples; i++) {
+            DataSet example = dataSet.get(i);
             if (i < trainSize) {
-                trainData.addRow(dataSet.get(i));
+                if (trainData.isEmpty()) {
+                    trainData = example.copy();
+                } else {
+                    trainData = DataSet.merge(Arrays.asList(trainData, example));
+                }
             } else {
-                testData.addRow(dataSet.get(i));
+                if (testData.isEmpty()) {
+                    testData = example.copy();
+                } else {
+                    testData = DataSet.merge(Arrays.asList(testData, example));
+                }
             }
         }
         
