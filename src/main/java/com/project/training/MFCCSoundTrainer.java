@@ -102,7 +102,7 @@ public class MFCCSoundTrainer extends BaseSoundTrainer {
         // Enregistrer les métriques d'entraînement
         int printIterations = Integer.parseInt(config != null ? 
             config.getProperty("training.print.iterations", "10") : "10");
-        model.setListeners(new ScoreIterationWithLoggingListener(printIterations));
+        model.setListeners(new org.deeplearning4j.optimize.listeners.ScoreIterationListener(printIterations));
     }
     
     @Override
