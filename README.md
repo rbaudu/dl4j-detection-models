@@ -24,8 +24,10 @@ La documentation complète du projet est organisée dans les fichiers suivants:
 - [Guide d'utilisation](docs/USAGE.md) - Instructions d'utilisation générale
 - [Système de métriques](docs/METRICS.md) - Explication du système de métriques d'évaluation
 - [Export vers TensorBoard](docs/TENSORBOARD.md) - Guide sur l'exportation et l'utilisation de TensorBoard
+- [Installation de TensorBoard](docs/TENSORBOARD_INSTALL.md) - Instructions d'installation et de configuration de TensorBoard
 - [Classes d'activité](docs/CLASSES.md) - Liste des 27 classes d'activité supportées
 - [Utilisation avancée](docs/ADVANCED.md) - Personnalisation et utilisation avancée
+- [Documentation API détaillée](docs/API.md) - Documentation détaillée de l'API avec exemples de code
 
 ## Transfert d'apprentissage
 
