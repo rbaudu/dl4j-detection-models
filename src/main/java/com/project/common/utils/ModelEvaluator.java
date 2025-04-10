@@ -1,453 +1,374 @@
 package com.project.common.utils;
 
-import org.deeplearning4j.datasets.iterator.impl.ListDataSetIterator;
+import org.deeplearning4j.eval.ROC;
+import org.deeplearning4j.eval.ROCMultiClass;
+import org.deeplearning4j.eval.Evaluation;
+import org.deeplearning4j.nn.api.Model;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
-import org.nd4j.evaluation.classification.Evaluation;
-import org.nd4j.evaluation.classification.ROCMultiClass;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
-/**
- * Classe pour l'évaluation complète des modèles, avec des métriques détaillées
- * et génération de rapports.
- */
 public class ModelEvaluator {
-    private static final Logger log = LoggerFactory.getLogger(ModelEvaluator.class);
+    private static final Logger logger = LoggerFactory.getLogger(ModelEvaluator.class);
     
-    private final Properties config;
-    private final MultiLayerNetwork model;
-    private final int batchSize;
-    private final String outputDir;
-    private List<String> labels;
+    private static final double DEFAULT_ACCURACY_THRESHOLD = 0.7;
+    private static final double DEFAULT_PRECISION_THRESHOLD = 0.7;
+    private static final double DEFAULT_RECALL_THRESHOLD = 0.7;
+    private static final double DEFAULT_F1_THRESHOLD = 0.7;
     
-    /**
-     * Constructeur du ModelEvaluator
-     * 
-     * @param model Modèle à évaluer
-     * @param config Propriétés de configuration
-     */
-    public ModelEvaluator(MultiLayerNetwork model, Properties config) {
-        this.model = model;
-        this.config = config;
-        this.batchSize = Integer.parseInt(config.getProperty("evaluation.batch.size", "32"));
-        this.outputDir = config.getProperty("metrics.output.dir", "output/metrics");
-        
-        // Créer le répertoire de sortie s'il n'existe pas
-        File dir = new File(outputDir);
-        if (!dir.exists()) {
-            if (!dir.mkdirs()) {
-                log.warn("Impossible de créer le répertoire de sortie: {}", outputDir);
-            }
+    private String modelName;
+    private File metricsDir;
+    private SimpleDateFormat dateFormat;
+    
+    public ModelEvaluator(String modelName, String metricsDir) {
+        this.modelName = modelName;
+        this.metricsDir = new File(metricsDir);
+        if (!this.metricsDir.exists()) {
+            this.metricsDir.mkdirs();
         }
+        this.dateFormat = new SimpleDateFormat("yyyyMMdd_HHmmss");
     }
     
     /**
-     * Définit les étiquettes des classes pour une meilleure présentation des résultats
-     * 
-     * @param labels Liste des noms de classes
-     * @return this pour chaînage
+     * Évalue un modèle avec un ensemble de données et génère un rapport complet
      */
-    public ModelEvaluator withLabels(List<String> labels) {
-        this.labels = new ArrayList<>(labels);
-        return this;
-    }
-    
-    /**
-     * Évalue le modèle sur un jeu de données et génère un rapport détaillé
-     * 
-     * @param testData Données de test
-     * @param modelName Nom du modèle pour l'identification du rapport
-     * @return Métriques d'évaluation
-     * @throws IOException Si une erreur survient lors de la création du rapport
-     */
-    public EvaluationMetrics evaluateAndGenerateReport(DataSet testData, String modelName) throws IOException {
-        // Créer un itérateur pour les données de test
-        DataSetIterator testIterator = new ListDataSetIterator<>(
-            Collections.singletonList(testData), batchSize
-        );
-        
-        return evaluateAndGenerateReport(testIterator, modelName);
-    }
-    
-    /**
-     * Évalue le modèle sur un jeu de données et génère un rapport détaillé
-     * 
-     * @param testIterator Itérateur sur les données de test
-     * @param modelName Nom du modèle pour l'identification du rapport
-     * @return Métriques d'évaluation
-     * @throws IOException Si une erreur survient lors de la création du rapport
-     */
-    public EvaluationMetrics evaluateAndGenerateReport(DataSetIterator testIterator, String modelName) throws IOException {
-        if (model == null || testIterator == null) {
-            throw new IllegalArgumentException("Le modèle et l'itérateur de test ne peuvent pas être null");
+    public EvaluationMetrics evaluateAndGenerateReport(Model model, DataSetIterator testIterator) {
+        if (testIterator == null) {
+            logger.warn("Iterator de test est null, impossible d'évaluer le modèle");
+            return null;
         }
         
-        // Mesurer le temps de départ
+        EvaluationMetrics metrics = evaluate(model, testIterator);
+        if (metrics == null) {
+            return null;
+        }
+        
+        // Vérifier les seuils de qualité
+        boolean qualityOk = checkQualityThresholds(metrics);
+        
+        // Générer le rapport de confusion
+        generateConfusionMatrix(model, testIterator);
+        
+        // Générer la courbe ROC si binaire ou multi-classe
+        generateROCCurve(model, testIterator);
+        
+        return metrics;
+    }
+    
+    /**
+     * Évalue un modèle avec un ensemble de données
+     */
+    public EvaluationMetrics evaluate(Model model, DataSetIterator testIterator) {
+        if (testIterator == null) {
+            logger.warn("Iterator de test est null, impossible d'évaluer le modèle");
+            return null;
+        }
+        
+        testIterator.reset();
         long startTime = System.currentTimeMillis();
         
-        // Réinitialiser l'itérateur
+        Evaluation eval = new Evaluation();
+        if (model instanceof MultiLayerNetwork) {
+            MultiLayerNetwork net = (MultiLayerNetwork) model;
+            net.evaluate(testIterator, eval);
+        } else {
+            logger.warn("Type de modèle non supporté: {}", model.getClass().getName());
+            return null;
+        }
+        
+        long endTime = System.currentTimeMillis();
+        long duration = endTime - startTime;
+        
+        // Calculer les métriques globales
+        double accuracy = eval.accuracy();
+        double precision = eval.precision();
+        double recall = eval.recall();
+        double f1 = eval.f1();
+        
+        EvaluationMetrics metrics = new EvaluationMetrics(accuracy, precision, recall, f1, duration);
+        
+        // Ajouter les métriques par classe (si disponibles)
+        int numClasses = eval.getClasses().size();
+        for (int i = 0; i < numClasses; i++) {
+            String className = eval.getClassLabel(i);
+            double classPrecision = eval.precision(i);
+            double classRecall = eval.recall(i);
+            double classF1 = eval.f1(i);
+            
+            ClassMetrics classMetrics = new ClassMetrics(i, className, classPrecision, classRecall, classF1);
+            classMetrics.setTruePositives((int) eval.truePositives().getDouble(i));
+            classMetrics.setFalsePositives((int) eval.falsePositives().getDouble(i));
+            classMetrics.setFalseNegatives((int) eval.falseNegatives().getDouble(i));
+            
+            metrics.addClassMetrics(i, classMetrics);
+        }
+        
+        return metrics;
+    }
+    
+    /**
+     * Vérifie si les métriques dépassent les seuils de qualité
+     */
+    public boolean checkQualityThresholds(EvaluationMetrics metrics) {
+        return checkQualityThresholds(metrics, 
+                                     DEFAULT_ACCURACY_THRESHOLD, 
+                                     DEFAULT_PRECISION_THRESHOLD, 
+                                     DEFAULT_RECALL_THRESHOLD, 
+                                     DEFAULT_F1_THRESHOLD);
+    }
+    
+    /**
+     * Vérifie si les métriques dépassent les seuils de qualité spécifiés
+     */
+    public boolean checkQualityThresholds(EvaluationMetrics metrics, 
+                                       double accuracyThreshold, 
+                                       double precisionThreshold, 
+                                       double recallThreshold, 
+                                       double f1Threshold) {
+        boolean allAboveThresholds = true;
+        
+        if (metrics.getAccuracy() < accuracyThreshold) {
+            logger.warn("L'accuracy ({}) est inférieure au seuil minimum ({})", 
+                      metrics.getAccuracy(), accuracyThreshold);
+            allAboveThresholds = false;
+        }
+        
+        if (metrics.getPrecision() < precisionThreshold) {
+            logger.warn("La precision ({}) est inférieure au seuil minimum ({})", 
+                      metrics.getPrecision(), precisionThreshold);
+            allAboveThresholds = false;
+        }
+        
+        if (metrics.getRecall() < recallThreshold) {
+            logger.warn("Le recall ({}) est inférieur au seuil minimum ({})", 
+                      metrics.getRecall(), recallThreshold);
+            allAboveThresholds = false;
+        }
+        
+        if (metrics.getF1Score() < f1Threshold) {
+            logger.warn("Le F1-score ({}) est inférieur au seuil minimum ({})", 
+                      metrics.getF1Score(), f1Threshold);
+            allAboveThresholds = false;
+        }
+        
+        return allAboveThresholds;
+    }
+    
+    /**
+     * Génère une matrice de confusion pour le modèle
+     */
+    public void generateConfusionMatrix(Model model, DataSetIterator testIterator) {
+        if (testIterator == null) {
+            logger.warn("Iterator de test est null, impossible de générer la matrice de confusion");
+            return;
+        }
+        
+        testIterator.reset();
+        Evaluation eval = new Evaluation();
+        
+        if (model instanceof MultiLayerNetwork) {
+            MultiLayerNetwork net = (MultiLayerNetwork) model;
+            net.evaluate(testIterator, eval);
+        } else {
+            logger.warn("Type de modèle non supporté pour la matrice de confusion: {}", model.getClass().getName());
+            return;
+        }
+        
+        // Récupérer la matrice de confusion
+        INDArray confusionMatrix = eval.getConfusionMatrix();
+        
+        // Exporter la matrice de confusion
+        String timestamp = dateFormat.format(new Date());
+        File outputFile = new File(metricsDir, modelName + "_confusion_matrix_" + timestamp + ".csv");
+        
+        try (FileWriter writer = new FileWriter(outputFile)) {
+            // En-tête
+            writer.write("PredictedClass");
+            for (int i = 0; i < eval.numClasses(); i++) {
+                writer.write("," + eval.getClassLabel(i));
+            }
+            writer.write("\n");
+            
+            // Contenu
+            for (int i = 0; i < eval.numClasses(); i++) {
+                writer.write(eval.getClassLabel(i));
+                for (int j = 0; j < eval.numClasses(); j++) {
+                    writer.write("," + (int) confusionMatrix.getDouble(i, j));
+                }
+                writer.write("\n");
+            }
+            
+            logger.info("Matrice de confusion exportée vers {}", outputFile.getAbsolutePath());
+        } catch (IOException e) {
+            logger.error("Erreur lors de l'exportation de la matrice de confusion : {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * Génère des courbes ROC pour le modèle
+     */
+    public void generateROCCurve(Model model, DataSetIterator testIterator) {
+        if (testIterator == null) {
+            logger.warn("Iterator de test est null, impossible de générer les courbes ROC");
+            return;
+        }
+        
+        testIterator.reset();
+        int numClasses = 0;
+        
+        // Déterminer le nombre de classes
+        while (testIterator.hasNext()) {
+            DataSet ds = testIterator.next();
+            numClasses = (int) ds.getLabels().size(1);
+            break;
+        }
+        
+        if (numClasses == 0) {
+            logger.warn("Impossible de déterminer le nombre de classes");
+            return;
+        }
+        
         testIterator.reset();
         
-        // Évaluation standard
-        Evaluation evaluation = new Evaluation();
-        
-        // Évaluation ROC pour les courbes ROC et AUC
-        ROCMultiClass roc = new ROCMultiClass(100); // 100 points pour les courbes ROC
-        
-        // Matrices pour stocker les prédictions et les étiquettes réelles
-        List<INDArray> predictions = new ArrayList<>();
-        List<INDArray> actuals = new ArrayList<>();
-        
-        // Évaluer le modèle
-        while (testIterator.hasNext()) {
-            DataSet batch = testIterator.next();
-            INDArray features = batch.getFeatures();
-            INDArray labels = batch.getLabels();
+        // Classification binaire ou multi-classe
+        if (numClasses == 2) {
+            // Courbe ROC pour classification binaire
+            ROC roc = new ROC(100);
             
-            INDArray output = model.output(features);
+            if (model instanceof MultiLayerNetwork) {
+                MultiLayerNetwork net = (MultiLayerNetwork) model;
+                net.doEvaluation(testIterator, roc);
+            } else {
+                logger.warn("Type de modèle non supporté pour ROC: {}", model.getClass().getName());
+                return;
+            }
             
-            // Stocker pour l'analyse
-            predictions.add(output.dup());
-            actuals.add(labels.dup());
+            // Exporter les données ROC
+            String timestamp = dateFormat.format(new Date());
+            File outputFile = new File(metricsDir, modelName + "_roc_" + timestamp + ".csv");
             
-            // Mettre à jour les évaluateurs
-            evaluation.eval(labels, output);
-            roc.eval(labels, output);
-        }
-        
-        // Calculer le temps écoulé
-        long endTime = System.currentTimeMillis();
-        long elapsed = endTime - startTime;
-        
-        // Extraire les métriques
-        double accuracy = evaluation.accuracy();
-        double precision = evaluation.precision();
-        double recall = evaluation.recall();
-        double f1 = evaluation.f1();
-        
-        // Créer l'objet de métriques
-        EvaluationMetrics metrics = new EvaluationMetrics(
-            0, accuracy, precision, recall, f1, elapsed
-        );
-        
-        // Ajouter les métriques par classe
-        int numClasses = evaluation.getNumRowCounter();
-        for (int i = 0; i < numClasses; i++) {
-            double classPrecision = evaluation.precision(i);
-            double classRecall = evaluation.recall(i);
-            double classF1 = evaluation.f1(i);
-            
-            metrics.addClassMetrics(i, classPrecision, classRecall, classF1);
-        }
-        
-        // Générer le rapport
-        generateDetailedReport(evaluation, roc, metrics, modelName);
-        
-        return metrics;
-    }
-    
-    /**
-     * Génère un rapport détaillé de l'évaluation
-     * 
-     * @param evaluation Objet Evaluation avec les métriques
-     * @param roc Objet ROCMultiClass avec les courbes ROC
-     * @param metrics Métriques d'évaluation calculées
-     * @param modelName Nom du modèle
-     * @throws IOException Si une erreur survient lors de l'écriture du rapport
-     */
-    private void generateDetailedReport(Evaluation evaluation, ROCMultiClass roc, 
-                                      EvaluationMetrics metrics, String modelName) throws IOException {
-        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String filename = String.format("%s/%s_evaluation_report_%s.txt", outputDir, modelName, timestamp);
-        
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
-            // En-tête du rapport
-            writer.write("===========================================\n");
-            writer.write(String.format("RAPPORT D'ÉVALUATION DU MODÈLE : %s\n", modelName));
-            writer.write(String.format("Date : %s\n", new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date())));
-            writer.write("===========================================\n\n");
-            
-            // Résumé des métriques globales
-            writer.write("MÉTRIQUES GLOBALES\n");
-            writer.write("===================\n");
-            writer.write(String.format("Accuracy: %.4f\n", metrics.getAccuracy()));
-            writer.write(String.format("Precision: %.4f\n", metrics.getPrecision()));
-            writer.write(String.format("Recall: %.4f\n", metrics.getRecall()));
-            writer.write(String.format("F1 Score: %.4f\n", metrics.getF1Score()));
-            writer.write(String.format("Temps d'évaluation: %.2f ms\n\n", metrics.getTrainingTime()));
-            
-            // Matrice de confusion
-            writer.write("MATRICE DE CONFUSION\n");
-            writer.write("====================\n");
-            writer.write(evaluation.confusionToString());
-            writer.write("\n\n");
-            
-            // Métriques par classe
-            writer.write("MÉTRIQUES PAR CLASSE\n");
-            writer.write("===================\n");
-            
-            Map<Integer, EvaluationMetrics.ClassMetrics> classMetricsMap = metrics.getPerClassMetrics();
-            for (Integer i : classMetricsMap.keySet()) {
-                EvaluationMetrics.ClassMetrics classMetrics = metrics.getClassMetrics(i);
-                if (classMetrics != null) {
-                    String className;
-                    if (labels != null && i < labels.size()) {
-                        className = labels.get(i.intValue());
-                    } else {
-                        className = "Classe " + i.intValue();
-                    }
-                    writer.write(String.format("%s:\n", className));
-                    writer.write(String.format("  Precision: %.4f\n", classMetrics.getPrecision()));
-                    writer.write(String.format("  Recall: %.4f\n", classMetrics.getRecall()));
-                    writer.write(String.format("  F1 Score: %.4f\n", classMetrics.getF1Score()));
+            try (FileWriter writer = new FileWriter(outputFile)) {
+                // En-tête
+                writer.write("Threshold,TPR,FPR,Precision,Recall,F1,Accuracy\n");
+                
+                // Données
+                double[] thresholds = roc.getThresholds();
+                for (int i = 0; i < thresholds.length; i++) {
+                    double threshold = thresholds[i];
+                    double tpr = roc.calculateTPR(threshold);
+                    double fpr = roc.calculateFPR(threshold);
+                    double precision = roc.calculatePrecision(threshold);
+                    double recall = roc.calculateRecall(threshold);
+                    double f1 = 2 * (precision * recall) / (precision + recall);
+                    double accuracy = roc.calculateAccuracy(threshold);
                     
-                    // Ajouter l'AUC pour chaque classe
-                    double auc = roc.calculateAUC(i);
-                    writer.write(String.format("  AUC: %.4f\n", auc));
-                    writer.write("\n");
+                    writer.write(String.format("%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n", 
+                                            threshold, tpr, fpr, precision, recall, f1, accuracy));
                 }
-            }
-            
-            // Ajouter des statistiques supplémentaires
-            writer.write("STATISTIQUES SUPPLÉMENTAIRES\n");
-            writer.write("==========================\n");
-            writer.write(evaluation.stats());
-            writer.write("\n");
-            
-            // Informations sur le seuil de classification
-            writer.write("INFORMATIONS SUR LES SEUILS (ROC)\n");
-            writer.write("==============================\n");
-            for (Integer i : classMetricsMap.keySet()) {
-                String className;
-                if (labels != null && i < labels.size()) {
-                    className = labels.get(i.intValue());
-                } else {
-                    className = "Classe " + i.intValue();
-                }
-                double auc = roc.calculateAUC(i);
-                writer.write(String.format("%s (AUC: %.4f)\n", className, auc));
                 
-                // Utiliser getOptimalThreshold au lieu de calculateOptimalThreshold
-                double threshold = getOptimalThreshold(roc, i);
-                writer.write(String.format("  Seuil optimal estimé: %.4f\n", threshold));
+                logger.info("Données ROC exportées vers {}", outputFile.getAbsolutePath());
+            } catch (IOException e) {
+                logger.error("Erreur lors de l'exportation des données ROC : {}", e.getMessage());
             }
             
-            writer.write("\n");
-            writer.write("===========================================\n");
-            writer.write("FIN DU RAPPORT\n");
-            writer.write("===========================================\n");
-        }
-        
-        log.info("Rapport d'évaluation détaillé généré dans {}", filename);
-        
-        // Générer également un graphique des métriques par classe
-        try {
-            MetricsVisualizer.generateClassMetricsChart(metrics, outputDir, modelName);
-        } catch (Exception e) {
-            log.warn("Impossible de générer le graphique des métriques par classe: {}", e.getMessage());
-        }
-    }
-    
-    /**
-     * Méthode adaptée pour remplacer calculateOptimalThreshold qui est manquante
-     * 
-     * @param roc Objet ROCMultiClass
-     * @param classIndex Index de la classe
-     * @return Seuil optimal estimé
-     */
-    private double getOptimalThreshold(ROCMultiClass roc, int classIndex) {
-        // On utilisera un seuil par défaut de 0.5
-        double defaultThreshold = 0.5;
-        try {
-            // Dans les versions plus récentes, on pourrait utiliser calculateOptimalThreshold
-            // Mais comme cette méthode n'est pas disponible, on utilise une estimation
-            return defaultThreshold;
-        } catch (Exception e) {
-            log.warn("Impossible de calculer le seuil optimal, utilisation de la valeur par défaut: {}", defaultThreshold);
-            return defaultThreshold;
-        }
-    }
-    
-    /**
-     * Calcule les métriques à partir de la matrice de confusion
-     * 
-     * @param confusionMatrix Matrice de confusion
-     * @return Métriques d'évaluation
-     */
-    public static EvaluationMetrics calculateMetricsFromConfusionMatrix(int[][] confusionMatrix) {
-        int numClasses = confusionMatrix.length;
-        
-        // Initialiser les compteurs
-        int totalCorrect = 0;
-        int totalSamples = 0;
-        
-        // Compteurs par classe
-        int[] truePositives = new int[numClasses];
-        int[] falsePositives = new int[numClasses];
-        int[] falseNegatives = new int[numClasses];
-        
-        // Calculer les compteurs à partir de la matrice de confusion
-        for (int i = 0; i < numClasses; i++) {
-            for (int j = 0; j < numClasses; j++) {
-                int count = confusionMatrix[i][j];
-                totalSamples += count;
+            // Trouver le seuil optimal (meilleur F1-score)
+            double bestThreshold = 0.5;
+            double bestF1 = 0.0;
+            double[] thresholds = roc.getThresholds();
+            
+            for (double threshold : thresholds) {
+                double precision = roc.calculatePrecision(threshold);
+                double recall = roc.calculateRecall(threshold);
                 
-                if (i == j) {
-                    // Diagonale = prédictions correctes
-                    totalCorrect += count;
-                    truePositives[i] += count;
-                } else {
-                    // Faux négatifs: devrait être de classe i mais prédit comme j
-                    falseNegatives[i] += count;
-                    // Faux positifs: devrait être de classe j mais prédit comme i
-                    falsePositives[j] += count;
+                if (precision > 0 && recall > 0) {
+                    double f1 = 2 * (precision * recall) / (precision + recall);
+                    if (f1 > bestF1) {
+                        bestF1 = f1;
+                        bestThreshold = threshold;
+                    }
                 }
             }
-        }
-        
-        // Calculer l'accuracy globale
-        double accuracy = (double) totalCorrect / totalSamples;
-        
-        // Calculer precision, recall et F1 pour chaque classe
-        double[] precisions = new double[numClasses];
-        double[] recalls = new double[numClasses];
-        double[] f1Scores = new double[numClasses];
-        
-        double precisionSum = 0.0;
-        double recallSum = 0.0;
-        double f1Sum = 0.0;
-        int validClassCount = 0;
-        
-        for (int i = 0; i < numClasses; i++) {
-            if (truePositives[i] + falsePositives[i] > 0) {
-                precisions[i] = (double) truePositives[i] / (truePositives[i] + falsePositives[i]);
-                precisionSum += precisions[i];
-                validClassCount++;
+            
+            // Exporter le seuil optimal
+            exportOptimalThresholds(Map.of(0, bestThreshold));
+            
+        } else if (numClasses > 2) {
+            // Courbe ROC pour classification multi-classe
+            ROCMultiClass rocMultiClass = new ROCMultiClass(100);
+            
+            if (model instanceof MultiLayerNetwork) {
+                MultiLayerNetwork net = (MultiLayerNetwork) model;
+                net.doEvaluation(testIterator, rocMultiClass);
             } else {
-                precisions[i] = 0.0;
+                logger.warn("Type de modèle non supporté pour ROC multi-classe: {}", model.getClass().getName());
+                return;
             }
             
-            if (truePositives[i] + falseNegatives[i] > 0) {
-                recalls[i] = (double) truePositives[i] / (truePositives[i] + falseNegatives[i]);
-                recallSum += recalls[i];
-            } else {
-                recalls[i] = 0.0;
+            // Trouver les seuils optimaux pour chaque classe
+            Map<Integer, Double> optimalThresholds = new HashMap<>();
+            
+            for (int i = 0; i < numClasses; i++) {
+                double bestThreshold = 0.5;
+                double bestF1 = 0.0;
+                
+                double[] thresholds = rocMultiClass.getThresholds();
+                for (double threshold : thresholds) {
+                    double precision = rocMultiClass.calculatePrecision(i, threshold);
+                    double recall = rocMultiClass.calculateRecall(i, threshold);
+                    
+                    if (precision > 0 && recall > 0) {
+                        double f1 = 2 * (precision * recall) / (precision + recall);
+                        if (f1 > bestF1) {
+                            bestF1 = f1;
+                            bestThreshold = threshold;
+                        }
+                    }
+                }
+                
+                optimalThresholds.put(i, bestThreshold);
             }
             
-            if (precisions[i] + recalls[i] > 0) {
-                f1Scores[i] = 2 * precisions[i] * recalls[i] / (precisions[i] + recalls[i]);
-                f1Sum += f1Scores[i];
-            } else {
-                f1Scores[i] = 0.0;
-            }
+            // Exporter les seuils optimaux
+            exportOptimalThresholds(optimalThresholds);
         }
-        
-        // Calculer les moyennes
-        double avgPrecision = validClassCount > 0 ? precisionSum / validClassCount : 0.0;
-        double avgRecall = validClassCount > 0 ? recallSum / validClassCount : 0.0;
-        double avgF1 = validClassCount > 0 ? f1Sum / validClassCount : 0.0;
-        
-        // Créer l'objet de métriques
-        EvaluationMetrics metrics = new EvaluationMetrics(
-            0, accuracy, avgPrecision, avgRecall, avgF1, 0.0
-        );
-        
-        // Ajouter les métriques par classe
-        for (int i = 0; i < numClasses; i++) {
-            metrics.addClassMetrics(i, precisions[i], recalls[i], f1Scores[i]);
-        }
-        
-        return metrics;
     }
     
     /**
      * Exporte les seuils optimaux pour chaque classe
-     * Ces seuils peuvent être utilisés pour ajuster les prédictions du modèle
-     * 
-     * @param roc Objet ROCMultiClass contenant les données ROC
-     * @param modelName Nom du modèle
-     * @throws IOException Si une erreur survient lors de l'écriture
      */
-    public void exportOptimalThresholds(ROCMultiClass roc, String modelName) throws IOException {
-        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String filename = String.format("%s/%s_optimal_thresholds_%s.csv", outputDir, modelName, timestamp);
+    public void exportOptimalThresholds(Map<Integer, Double> thresholds) {
+        if (thresholds == null || thresholds.isEmpty()) {
+            logger.warn("Aucun seuil optimal à exporter");
+            return;
+        }
         
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
-            // En-tête du CSV
-            writer.write("Class,OptimalThreshold,AUC\n");
+        String timestamp = dateFormat.format(new Date());
+        File outputFile = new File(metricsDir, modelName + "_thresholds_optimal_thresholds_" + timestamp + ".csv");
+        
+        try (FileWriter writer = new FileWriter(outputFile)) {
+            // En-tête
+            writer.write("ClassIndex,OptimalThreshold\n");
             
-            // Écrire les seuils pour chaque classe
-            int numClasses = roc.getNumClasses();
-            for (int i = 0; i < numClasses; i++) {
-                double threshold = getOptimalThreshold(roc, i);
-                double auc = roc.calculateAUC(i);
-                
-                String className;
-                if (labels != null && i < labels.size()) {
-                    className = labels.get(i);
-                } else {
-                    className = String.valueOf(i);
-                }
-                writer.write(String.format("%s,%.6f,%.6f\n", className, threshold, auc));
+            // Données
+            for (Map.Entry<Integer, Double> entry : thresholds.entrySet()) {
+                writer.write(String.format("%d,%.4f\n", entry.getKey(), entry.getValue()));
             }
+            
+            logger.info("Seuils optimaux exportés vers {}", outputFile.getAbsolutePath());
+        } catch (IOException e) {
+            logger.error("Erreur lors de l'exportation des seuils optimaux : {}", e.getMessage());
         }
-        
-        log.info("Seuils optimaux exportés vers {}", filename);
-    }
-    
-    /**
-     * Vérifie si les métriques calculées respectent les seuils minimaux définis dans la configuration
-     * 
-     * @param metrics Métriques à vérifier
-     * @return true si les métriques respectent les seuils minimaux, false sinon
-     */
-    public boolean validateMetricsAgainstThresholds(EvaluationMetrics metrics) {
-        double minAccuracy = Double.parseDouble(config.getProperty("test.min.accuracy", "0.8"));
-        double minPrecision = Double.parseDouble(config.getProperty("test.min.precision", "0.75"));
-        double minRecall = Double.parseDouble(config.getProperty("test.min.recall", "0.75"));
-        double minF1 = Double.parseDouble(config.getProperty("test.min.f1", "0.75"));
-        
-        boolean validated = true;
-        
-        if (metrics.getAccuracy() < minAccuracy) {
-            log.warn("L'accuracy ({}) est inférieure au seuil minimum ({})", 
-                    metrics.getAccuracy(), minAccuracy);
-            validated = false;
-        }
-        
-        if (metrics.getPrecision() < minPrecision) {
-            log.warn("La precision ({}) est inférieure au seuil minimum ({})", 
-                    metrics.getPrecision(), minPrecision);
-            validated = false;
-        }
-        
-        if (metrics.getRecall() < minRecall) {
-            log.warn("Le recall ({}) est inférieur au seuil minimum ({})", 
-                    metrics.getRecall(), minRecall);
-            validated = false;
-        }
-        
-        if (metrics.getF1Score() < minF1) {
-            log.warn("Le F1-score ({}) est inférieur au seuil minimum ({})", 
-                    metrics.getF1Score(), minF1);
-            validated = false;
-        }
-        
-        return validated;
     }
 }
