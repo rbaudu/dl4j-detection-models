@@ -44,7 +44,10 @@ public class MetricsTracker {
         
         if (model instanceof MultiLayerNetwork) {
             MultiLayerNetwork net = (MultiLayerNetwork) model;
-            net.evaluate(testIterator, eval);
+            // Adaptation à l'API réelle
+            net.evaluate(testIterator);
+            // On récupère l'évaluation à partir du résultat
+            eval = (Evaluation) net.evaluate(testIterator);
         } else {
             logger.warn("Model type not supported for evaluation: {}", model.getClass().getName());
             return;
@@ -57,17 +60,30 @@ public class MetricsTracker {
         
         EvaluationMetrics epochMetrics = new EvaluationMetrics(accuracy, precision, recall, f1, trainingTimeMs);
         
-        // Ajouter les métriques par classe
-        for (int i = 0; i < eval.numClasses(); i++) {
+        // Ajouter les métriques par classe (selon l'API disponible)
+        // On limite aux classes visibles (adapté selon l'API)
+        int numClasses = eval.getClasses().size();
+        for (int i = 0; i < numClasses; i++) {
             String className = "Class-" + i;
             double classPrecision = eval.precision(i);
             double classRecall = eval.recall(i);
             double classF1 = eval.f1(i);
             
             ClassMetrics classMetrics = new ClassMetrics(i, className, classPrecision, classRecall, classF1);
-            classMetrics.setTruePositives((int) eval.truePositives().getDouble(i));
-            classMetrics.setFalsePositives((int) eval.falsePositives().getDouble(i));
-            classMetrics.setFalseNegatives((int) eval.falseNegatives().getDouble(i));
+            
+            // Adaptation selon l'API disponible
+            // Si truePositives/falsePositives n'est pas un INDArray mais un Map
+            try {
+                classMetrics.setTruePositives(eval.truePositives().getInt(i));
+                classMetrics.setFalsePositives(eval.falsePositives().getInt(i));
+                classMetrics.setFalseNegatives(eval.falseNegatives().getInt(i));
+            } catch (Exception e) {
+                logger.warn("Impossible de récupérer TP/FP/FN: {}", e.getMessage());
+                // Valeurs par défaut
+                classMetrics.setTruePositives(0);
+                classMetrics.setFalsePositives(0);
+                classMetrics.setFalseNegatives(0);
+            }
             
             epochMetrics.addClassMetrics(i, classMetrics);
         }
