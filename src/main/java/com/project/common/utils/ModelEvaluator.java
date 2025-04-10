@@ -202,7 +202,7 @@ public class ModelEvaluator {
             writer.write("===================\n");
             
             Map<Integer, EvaluationMetrics.ClassMetrics> classMetricsMap = metrics.getPerClassMetrics();
-            for (int i = 0; i < classMetricsMap.size(); i++) {
+            for (Integer i : classMetricsMap.keySet()) {
                 EvaluationMetrics.ClassMetrics classMetrics = metrics.getClassMetrics(i);
                 if (classMetrics != null) {
                     String className = (labels != null && i < labels.size()) ? labels.get(i) : "Classe " + i;
@@ -227,7 +227,7 @@ public class ModelEvaluator {
             // Informations sur le seuil de classification
             writer.write("INFORMATIONS SUR LES SEUILS (ROC)\n");
             writer.write("==============================\n");
-            for (int i = 0; i < classMetricsMap.size(); i++) {
+            for (Integer i : classMetricsMap.keySet()) {
                 String className = (labels != null && i < labels.size()) ? labels.get(i) : "Classe " + i;
                 double auc = roc.calculateAUC(i);
                 writer.write(String.format("%s (AUC: %.4f)\n", className, auc));
