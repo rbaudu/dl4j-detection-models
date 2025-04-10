@@ -15,6 +15,7 @@
         <dl4j.version>1.0.0-M2.1</dl4j.version>
         <nd4j.version>1.0.0-M2.1</nd4j.version>
         <logback.version>1.2.11</logback.version>
+        <jfreechart.version>1.5.3</jfreechart.version>
     </properties>
 
     <dependencies>
@@ -79,6 +80,13 @@
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>${logback.version}</version>
+        </dependency>
+
+        <!-- JFreeChart pour les visualisations -->
+        <dependency>
+            <groupId>org.jfree</groupId>
+            <artifactId>jfreechart</artifactId>
+            <version>${jfreechart.version}</version>
         </dependency>
 
         <!-- Testing -->
