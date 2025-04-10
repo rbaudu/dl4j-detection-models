@@ -79,10 +79,10 @@ public class SoundTrainerTest {
         long inputSize = Integer.parseInt(config.getProperty("sound.input.length", "16000")) * 
                         Integer.parseInt(config.getProperty("sound.num.mfcc", "40"));
         
-        // Dans DL4J 1.0.0-beta7, nous utilisons layerInputSize() avec l'index de la couche
-        long[] inputShape = model.layerInputSize(0);
+        // Dans DL4J 1.0.0-beta7, utilisons une autre approche pour obtenir la taille d'entrée
+        int modelInputSize = model.getLayer(0).getParam("W").columns();
         assertEquals("La taille d'entrée du modèle devrait correspondre aux paramètres", 
-                inputSize, inputShape[0]);
+                (int)inputSize, modelInputSize);
     }
     
     @Test
