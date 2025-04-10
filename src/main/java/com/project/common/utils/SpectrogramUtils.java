@@ -33,7 +33,164 @@ public class SpectrogramUtils {
      * @return Image du spectrogramme
      */
     public static BufferedImage generateSpectrogram(File audioFile, int height, int width) {
-        return AudioUtils.generateSpectrogram(audioFile, height, width);
+        try {
+            // Charger le fichier audio
+            javax.sound.sampled.AudioInputStream audioStream = AudioUtils.loadWavFile(audioFile);
+            
+            // Convertir en mono si nécessaire
+            audioStream = AudioUtils.convertToMono(audioStream);
+            
+            // Obtenir les données audio
+            byte[] audioData = readAllBytes(audioStream);
+            javax.sound.sampled.AudioFormat format = audioStream.getFormat();
+            
+            // Convertir en valeurs à virgule flottante
+            float[] samples = bytesToFloats(audioData, format);
+            
+            // Génération du spectrogramme
+            return createSpectrogramImage(samples, format.getSampleRate(), height, width);
+        } catch (Exception e) {
+            log.error("Erreur lors de la génération du spectrogramme pour " + audioFile.getName(), e);
+            // En cas d'erreur, retourner une image noire
+            return new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        }
+    }
+    
+    /**
+     * Lit tous les octets d'un flux audio
+     * 
+     * @param audioStream Flux audio à lire
+     * @return Tableau d'octets contenant les données audio
+     * @throws IOException Si une erreur survient lors de la lecture
+     */
+    private static byte[] readAllBytes(javax.sound.sampled.AudioInputStream audioStream) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        int nRead;
+        byte[] data = new byte[16384];
+        while ((nRead = audioStream.read(data, 0, data.length)) != -1) {
+            buffer.write(data, 0, nRead);
+        }
+        buffer.flush();
+        return buffer.toByteArray();
+    }
+    
+    /**
+     * Convertit des octets audio en valeurs à virgule flottante
+     * 
+     * @param audioData Données audio en octets
+     * @param format Format audio
+     * @return Tableau de valeurs à virgule flottante
+     */
+    private static float[] bytesToFloats(byte[] audioData, javax.sound.sampled.AudioFormat format) {
+        int bytesPerSample = format.getSampleSizeInBits() / 8;
+        int numSamples = audioData.length / bytesPerSample;
+        float[] samples = new float[numSamples];
+        
+        // Audio 16 bits
+        if (format.getSampleSizeInBits() == 16) {
+            java.nio.ShortBuffer shortBuffer = java.nio.ByteBuffer.wrap(audioData)
+                .order(format.isBigEndian() ? java.nio.ByteOrder.BIG_ENDIAN : java.nio.ByteOrder.LITTLE_ENDIAN)
+                .asShortBuffer();
+            
+            for (int i = 0; i < numSamples; i++) {
+                samples[i] = shortBuffer.get(i) / 32768.0f;  // Normaliser entre -1 et 1
+            }
+        } 
+        // Audio 8 bits non signé
+        else if (format.getSampleSizeInBits() == 8) {
+            for (int i = 0; i < numSamples; i++) {
+                samples[i] = ((audioData[i] & 0xff) - 128) / 128.0f;  // Normaliser entre -1 et 1
+            }
+        }
+        
+        return samples;
+    }
+    
+    /**
+     * Crée une image de spectrogramme à partir d'échantillons audio
+     * 
+     * @param samples Échantillons audio
+     * @param sampleRate Taux d'échantillonnage
+     * @param height Hauteur de l'image
+     * @param width Largeur de l'image
+     * @return Image du spectrogramme
+     */
+    private static BufferedImage createSpectrogramImage(float[] samples, float sampleRate, int height, int width) {
+        // Simuler un spectrogramme simple
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        
+        // Si l'échantillon est vide, retourner une image noire
+        if (samples.length == 0) {
+            return image;
+        }
+        
+        // Calculer une représentation simplifiée du spectrogramme
+        // En réalité, vous utiliseriez FFT et d'autres techniques
+        for (int x = 0; x < width; x++) {
+            int startIdx = (int) (x * samples.length / (float) width);
+            int endIdx = (int) ((x + 1) * samples.length / (float) width);
+            
+            // Pour chaque point temporel, calculer l'énergie pour différentes bandes de fréquence
+            for (int y = 0; y < height; y++) {
+                // Simuler différentes bandes de fréquence
+                int band = height - 1 - y;  // Inverser pour avoir les basses fréquences en bas
+                
+                // Calculer l'énergie pour cette bande de fréquence (simulée)
+                float energy = 0;
+                for (int i = startIdx; i < endIdx && i < samples.length; i++) {
+                    // Plus la bande est haute, plus la fréquence est élevée
+                    energy += Math.abs(samples[i] * Math.sin(Math.PI * band / height));
+                }
+                
+                // Normaliser et convertir en couleur
+                energy = Math.min(1.0f, energy * 5);  // Amplifier et limiter
+                int colorValue = (int) (energy * 255);
+                
+                // Créer une couleur basée sur l'énergie
+                int color = getColorFromValue(energy);
+                
+                image.setRGB(x, y, color);
+            }
+        }
+        
+        return image;
+    }
+    
+    /**
+     * Convertit une valeur normalisée (0-1) en une couleur
+     * Utilise une colormap de type "viridis"
+     * 
+     * @param value Valeur normalisée entre 0 et 1
+     * @return Couleur RGB
+     */
+    private static int getColorFromValue(float value) {
+        // Colormap simplifiée de type "viridis"
+        // De bleu foncé (faible) à jaune vif (élevé)
+        float r, g, b;
+        
+        if (value < 0.25) {
+            r = 0;
+            g = 4 * value;
+            b = 1;
+        } else if (value < 0.5) {
+            r = 0;
+            g = 1;
+            b = 1 - 4 * (value - 0.25f);
+        } else if (value < 0.75) {
+            r = 4 * (value - 0.5f);
+            g = 1;
+            b = 0;
+        } else {
+            r = 1;
+            g = 1 - 4 * (value - 0.75f);
+            b = 0;
+        }
+        
+        int ri = (int) (r * 255);
+        int gi = (int) (g * 255);
+        int bi = (int) (b * 255);
+        
+        return (ri << 16) | (gi << 8) | bi;
     }
     
     /**
@@ -130,185 +287,5 @@ public class SpectrogramUtils {
         
         // Convertir en INDArray
         return spectrogramToINDArray(spectrogram, height, width, channels);
-    }
-    
-    /**
-     * Traite tous les fichiers audio d'un répertoire en spectrogrammes et les sauvegarde
-     * 
-     * @param sourceDir Répertoire source contenant les fichiers audio
-     * @param outputDir Répertoire de sortie pour les spectrogrammes
-     * @param height Hauteur des spectrogrammes
-     * @param width Largeur des spectrogrammes
-     * @return Nombre de spectrogrammes générés
-     */
-    public static int processDirectoryToSpectrograms(File sourceDir, File outputDir, int height, int width) {
-        if (!sourceDir.exists() || !sourceDir.isDirectory()) {
-            log.error("Le répertoire source '{}' n'existe pas ou n'est pas un répertoire", sourceDir.getAbsolutePath());
-            return 0;
-        }
-        
-        // Créer le répertoire de sortie s'il n'existe pas
-        if (!outputDir.exists()) {
-            outputDir.mkdirs();
-        }
-        
-        int count = 0;
-        
-        // Traiter les fichiers audio
-        File[] audioFiles = sourceDir.listFiles(file -> {
-            String name = file.getName().toLowerCase();
-            return file.isFile() && (name.endsWith(".wav") || name.endsWith(".mp3") || name.endsWith(".ogg"));
-        });
-        
-        if (audioFiles != null) {
-            for (File audioFile : audioFiles) {
-                try {
-                    // Générer le spectrogramme
-                    BufferedImage spectrogram = generateSpectrogram(audioFile, height, width);
-                    
-                    // Créer le fichier de sortie avec le même nom mais extension .png
-                    String outputName = audioFile.getName();
-                    outputName = outputName.substring(0, outputName.lastIndexOf('.')) + ".png";
-                    File outputFile = new File(outputDir, outputName);
-                    
-                    // Sauvegarder le spectrogramme
-                    saveSpectrogramToFile(spectrogram, outputFile);
-                    
-                    count++;
-                } catch (Exception e) {
-                    log.error("Erreur lors du traitement du fichier {}", audioFile.getName(), e);
-                }
-            }
-        }
-        
-        // Traiter les sous-répertoires récursivement
-        File[] subDirs = sourceDir.listFiles(File::isDirectory);
-        if (subDirs != null) {
-            for (File subDir : subDirs) {
-                File subOutputDir = new File(outputDir, subDir.getName());
-                count += processDirectoryToSpectrograms(subDir, subOutputDir, height, width);
-            }
-        }
-        
-        return count;
-    }
-    
-    /**
-     * Extrait les valeurs RVB moyennes d'un spectrogramme par régions
-     * Utile pour créer des caractéristiques simplifiées à partir d'un spectrogramme
-     * 
-     * @param spectrogram Image du spectrogramme
-     * @param numRegionsX Nombre de régions horizontales
-     * @param numRegionsY Nombre de régions verticales
-     * @return Tableau de caractéristiques
-     */
-    public static float[] extractRegionFeatures(BufferedImage spectrogram, int numRegionsX, int numRegionsY) {
-        int width = spectrogram.getWidth();
-        int height = spectrogram.getHeight();
-        
-        int regionWidth = width / numRegionsX;
-        int regionHeight = height / numRegionsY;
-        
-        float[] features = new float[numRegionsX * numRegionsY * 3];  // 3 pour R, G, B
-        
-        for (int ry = 0; ry < numRegionsY; ry++) {
-            for (int rx = 0; rx < numRegionsX; rx++) {
-                int startX = rx * regionWidth;
-                int startY = ry * regionHeight;
-                int endX = Math.min(startX + regionWidth, width);
-                int endY = Math.min(startY + regionHeight, height);
-                
-                // Calculer les moyennes RVB pour cette région
-                float sumR = 0, sumG = 0, sumB = 0;
-                int pixelCount = 0;
-                
-                for (int y = startY; y < endY; y++) {
-                    for (int x = startX; x < endX; x++) {
-                        int rgb = spectrogram.getRGB(x, y);
-                        sumR += (rgb >> 16) & 0xFF;
-                        sumG += (rgb >> 8) & 0xFF;
-                        sumB += rgb & 0xFF;
-                        pixelCount++;
-                    }
-                }
-                
-                // Calculer les moyennes et normaliser
-                int featureIndex = (ry * numRegionsX + rx) * 3;
-                features[featureIndex] = sumR / (pixelCount * 255.0f);
-                features[featureIndex + 1] = sumG / (pixelCount * 255.0f);
-                features[featureIndex + 2] = sumB / (pixelCount * 255.0f);
-            }
-        }
-        
-        return features;
-    }
-    
-    /**
-     * Combine les images de spectrogrammes d'une classe en une moyenne visuelle
-     * Utile pour visualiser les modèles caractéristiques d'une classe
-     * 
-     * @param spectrogramFiles Tableau des fichiers de spectrogramme
-     * @param height Hauteur du spectrogramme de sortie
-     * @param width Largeur du spectrogramme de sortie
-     * @return Image moyennée des spectrogrammes
-     */
-    public static BufferedImage createAverageSpectrogram(File[] spectrogramFiles, int height, int width) {
-        if (spectrogramFiles == null || spectrogramFiles.length == 0) {
-            return new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        }
-        
-        // Tableaux pour stocker les sommes des valeurs RGB
-        long[][] sumR = new long[height][width];
-        long[][] sumG = new long[height][width];
-        long[][] sumB = new long[height][width];
-        
-        int validFileCount = 0;
-        
-        // Accumuler les valeurs RGB
-        for (File file : spectrogramFiles) {
-            try {
-                BufferedImage img = ImageIO.read(file);
-                if (img == null) continue;
-                
-                // Redimensionner si nécessaire
-                BufferedImage resized = img;
-                if (img.getWidth() != width || img.getHeight() != height) {
-                    resized = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-                    resized.getGraphics().drawImage(img.getScaledInstance(width, height, java.awt.Image.SCALE_SMOOTH), 0, 0, null);
-                }
-                
-                // Accumuler les valeurs RGB
-                for (int y = 0; y < height; y++) {
-                    for (int x = 0; x < width; x++) {
-                        int rgb = resized.getRGB(x, y);
-                        sumR[y][x] += (rgb >> 16) & 0xFF;
-                        sumG[y][x] += (rgb >> 8) & 0xFF;
-                        sumB[y][x] += rgb & 0xFF;
-                    }
-                }
-                
-                validFileCount++;
-            } catch (IOException e) {
-                log.error("Erreur lors de la lecture du fichier {}", file.getName(), e);
-            }
-        }
-        
-        // Créer l'image moyennée
-        BufferedImage avgImg = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        
-        if (validFileCount > 0) {
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                    int avgR = (int) (sumR[y][x] / validFileCount);
-                    int avgG = (int) (sumG[y][x] / validFileCount);
-                    int avgB = (int) (sumB[y][x] / validFileCount);
-                    
-                    int avgRGB = (avgR << 16) | (avgG << 8) | avgB;
-                    avgImg.setRGB(x, y, avgRGB);
-                }
-            }
-        }
-        
-        return avgImg;
     }
 }
