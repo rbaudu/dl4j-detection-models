@@ -56,8 +56,10 @@ public class MFCCSoundTrainer extends BaseSoundTrainer {
      */
     public MFCCSoundTrainer(Properties config) {
         super(config);
+        // Assignation des valeurs avec des valeurs par défaut explicites
         this.inputLength = Integer.parseInt(config.getProperty("sound.input.length", "16000"));
         this.numMfcc = Integer.parseInt(config.getProperty("sound.num.mfcc", "40"));
+        log.info("Configuration MFCC chargée: inputLength={}, numMfcc={}", inputLength, numMfcc);
     }
     
     @Override
@@ -175,5 +177,13 @@ public class MFCCSoundTrainer extends BaseSoundTrainer {
         // Sauvegarder le checkpoint
         log.info("Sauvegarde du checkpoint d'époque {} vers: {}", epoch, checkpointPath);
         ModelUtils.saveModel(network, checkpointPath, true);
+    }
+    
+    /**
+     * Méthode d'accès public pour obtenir la taille d'entrée
+     * @return La taille d'entrée calculée
+     */
+    public int getInputSize() {
+        return inputLength * numMfcc;
     }
 }
