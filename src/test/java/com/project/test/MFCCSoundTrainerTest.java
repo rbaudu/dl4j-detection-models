@@ -106,7 +106,7 @@ public class MFCCSoundTrainerTest {
         int expectedHiddenSize = Integer.parseInt(testConfig.getProperty("model.hidden.size"));
         log.info("Taille d'entrée attendue: {}", expectedInputSize);
         log.info("Nombre de classes attendu: {}", expectedNumClasses);
-        log.info("Taille de couche cachée attendue: {}", expectedHiddenSize);
+        log.info("Taille de la couche cachée attendue: {}", expectedHiddenSize);
         
         // Créer et initialiser un MFCCSoundTrainer avec cette configuration spécifique
         MFCCSoundTrainer trainer = new MFCCSoundTrainer(testConfig);
@@ -122,11 +122,7 @@ public class MFCCSoundTrainerTest {
         MultiLayerNetwork model = trainer.getModel();
         assertNotNull("Le modèle devrait être créé", model);
         
-        // Obtenir la taille d'entrée réelle du modèle
-        int actualInputSize = model.getLayer(0).getParam("W").columns();
-        log.info("Taille d'entrée réelle du modèle: {}", actualInputSize);
-        
-        // Journaliser la structure du modèle pour le débogage
+        // Journaliser la structure complète du modèle pour le débogage
         log.info("Structure du modèle:");
         log.info("Nombre de couches: {}", model.getLayers().length);
         for (int i = 0; i < model.getLayers().length; i++) {
@@ -134,30 +130,32 @@ public class MFCCSoundTrainerTest {
             log.info("Couche {}: type={}, paramètres={}", 
                      i, layer.getClass().getSimpleName(), layer.paramTable().keySet());
             
-            // Afficher les dimensions de la matrice de poids
             if (layer.paramTable().containsKey("W")) {
-                int rows = layer.getParam("W").rows();
-                int cols = layer.getParam("W").columns();
-                log.info("  Dimensions W: {}x{}", rows, cols);
+                log.info("  Couche {}: Dimensions W = {}x{}", 
+                       i, layer.getParam("W").rows(), layer.getParam("W").columns());
             }
         }
+        
+        // Obtenir la taille d'entrée réelle du modèle
+        int actualInputSize = model.getLayer(0).getParam("W").columns();
+        log.info("Taille d'entrée réelle du modèle: {}", actualInputSize);
         
         // Vérifier que la taille d'entrée est au moins raisonnable
         assertTrue("La taille d'entrée du modèle devrait être positive", actualInputSize > 0);
         
-        // Vérifier l'attribut inputSize du trainer sans vérifier directement la structure du modèle
+        // Test supplémentaire pour vérifier l'attribut inputSize du trainer
         int trainerInputSize = trainer.getInputSize();
         assertEquals("La taille d'entrée du trainer devrait correspondre aux paramètres", 
                 expectedInputSize, trainerInputSize);
         
-        // Vérifier le nombre de classes configuré dans le trainer sans vérifier directement le modèle
+        // Au lieu de vérifier la structure interne du modèle qui peut varier,
+        // vérifier simplement que la configuration du trainer est correcte
+        assertEquals("La taille de la couche cachée du trainer devrait correspondre à la configuration", 
+                expectedHiddenSize, trainer.getHiddenLayerSize());
+        
+        // Pour le nombre de classes, vérifier directement avec le trainer
         assertEquals("Le nombre de classes devrait correspondre à la configuration", 
                 expectedNumClasses, trainer.getNumClasses());
-        
-        // Vérification adaptée pour la taille de la couche cachée - au lieu de vérifier la matrice de poids,
-        // vérifions directement la valeur configurée dans le trainer
-        assertEquals("La taille de la couche cachée configurée devrait correspondre",
-                expectedHiddenSize, trainer.getHiddenLayerSize());
         
         log.info("Test réussi avec vérifications adaptées");
     }
