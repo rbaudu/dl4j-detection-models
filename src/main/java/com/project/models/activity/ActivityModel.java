@@ -181,10 +181,12 @@ public class ActivityModel {
         
         if (network != null) {
             // Sauvegarder comme MultiLayerNetwork
+            // Dans beta7, le paramètre s'appelle saveUpdater au lieu de includeUpdater
             ModelUtils.saveModel(network, modelPath, true);
             log.info("Modèle MultiLayerNetwork sauvegardé avec succès");
         } else if (graphNetwork != null) {
             // Sauvegarder comme ComputationGraph
+            // Dans beta7, le paramètre s'appelle saveUpdater au lieu de includeUpdater
             org.deeplearning4j.util.ModelSerializer.writeModel(graphNetwork, modelFile, true);
             log.info("Modèle ComputationGraph sauvegardé avec succès");
         } else {
@@ -202,17 +204,17 @@ public class ActivityModel {
         log.info("Exportation du modèle de détection d'activité vers {}", exportPath);
         
         int modelVersion = Integer.parseInt(config.getProperty("export.model.version", "1"));
-        boolean includeUpdater = Boolean.parseBoolean(config.getProperty("export.model.include.updater", "false"));
+        boolean saveUpdater = Boolean.parseBoolean(config.getProperty("export.model.include.updater", "false"));
         
         if (network != null) {
             // Exporter comme MultiLayerNetwork
-            ModelUtils.exportModelForDL4J(network, exportPath, includeUpdater, modelVersion);
+            ModelUtils.exportModelForDL4J(network, exportPath, saveUpdater, modelVersion);
             log.info("Modèle MultiLayerNetwork exporté avec succès");
         } else if (graphNetwork != null) {
             // Exporter comme ComputationGraph
             // Simuler une exportation spéciale en sauvegardant normalement
             File modelFile = new File(exportPath);
-            org.deeplearning4j.util.ModelSerializer.writeModel(graphNetwork, modelFile, includeUpdater);
+            org.deeplearning4j.util.ModelSerializer.writeModel(graphNetwork, modelFile, saveUpdater);
             log.info("Modèle ComputationGraph exporté avec succès");
         } else {
             throw new IllegalStateException("Aucun modèle à exporter");
