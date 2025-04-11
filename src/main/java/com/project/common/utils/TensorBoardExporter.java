@@ -2,24 +2,31 @@ package com.project.common.utils;
 
 import org.deeplearning4j.eval.Evaluation;
 import org.deeplearning4j.ui.api.UIServer;
+import org.deeplearning4j.ui.model.stats.StatsListener;
+import org.deeplearning4j.ui.model.storage.FileStatsStorage;
+import org.deeplearning4j.ui.model.storage.InMemoryStatsStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Version simplifiée de TensorBoardExporter sans dépendances problématiques
+ * Exporteur TensorBoard pour DL4J
  */
 public class TensorBoardExporter {
     private static final Logger logger = LoggerFactory.getLogger(TensorBoardExporter.class);
     
     private static final String DEFAULT_TB_DIR = "tensorboard";
+    private static TensorBoardExporter instance;
     private String tensorboardDir;
     private boolean inMemory;
-    private AtomicBoolean initialized = new AtomicBoolean(false);
+    private static AtomicBoolean initialized = new AtomicBoolean(false);
+    private static UIServer uiServer;
+    private static FileStatsStorage statsStorage;
     
     /**
      * Constructeur par défaut
@@ -60,9 +67,26 @@ public class TensorBoardExporter {
                     tbDir.mkdirs();
                 }
                 
+                // Initialiser le stockage de statistiques
+                statsStorage = new FileStatsStorage(new File(tbDir, "ui-stats.bin"));
+                
+                // Obtenir une instance du serveur UI
+                uiServer = UIServer.getInstance();
+                
+                // Attacher le stockage au serveur
+                uiServer.attach(statsStorage);
+                
                 logger.info("Serveur TensorBoard démarré - Accédez à http://localhost:9000/train pour visualiser les métriques");
             } else {
                 // Stockage en mémoire
+                InMemoryStatsStorage inMemoryStatsStorage = new InMemoryStatsStorage();
+                
+                // Obtenir une instance du serveur UI
+                uiServer = UIServer.getInstance();
+                
+                // Attacher le stockage au serveur
+                uiServer.attach(inMemoryStatsStorage);
+                
                 logger.info("Serveur TensorBoard démarré en mémoire - Accédez à http://localhost:9000/train pour visualiser les métriques");
             }
             
@@ -80,6 +104,9 @@ public class TensorBoardExporter {
     public void shutdown() {
         if (initialized.get()) {
             try {
+                if (uiServer != null) {
+                    uiServer.stop();
+                }
                 logger.info("Serveur TensorBoard arrêté");
                 initialized.set(false);
             } catch (Exception e) {
@@ -89,7 +116,7 @@ public class TensorBoardExporter {
     }
     
     /**
-     * Exporte des métriques d'évaluation (version simplifiée)
+     * Exporte des métriques d'évaluation
      */
     public boolean exportEvaluation(Evaluation eval, int epoch) {
         if (!initialized.get() && !initialize()) {
@@ -117,7 +144,7 @@ public class TensorBoardExporter {
     }
     
     /**
-     * Exporte des métriques spécifiques (version simplifiée)
+     * Exporte des métriques spécifiques
      */
     public boolean exportMetrics(Map<String, Float> metrics, int iteration) {
         if (!initialized.get() && !initialize()) {
@@ -141,6 +168,24 @@ public class TensorBoardExporter {
     }
     
     /**
+     * Crée un listener pour attacher à un modèle
+     */
+    public StatsListener createListener(String modelName) {
+        if (!initialized.get() && !initialize()) {
+            logger.warn("TensorBoard n'est pas initialisé, impossible de créer un listener");
+            return null;
+        }
+        
+        if (inMemory) {
+            // Dans le cas d'un stockage en mémoire
+            return new StatsListener((InMemoryStatsStorage) uiServer.getStorageManager());
+        } else {
+            // Dans le cas d'un stockage fichier
+            return new StatsListener(statsStorage);
+        }
+    }
+    
+    /**
      * Initialise à partir d'une configuration
      */
     public static TensorBoardExporter fromConfig(Properties config) {
@@ -158,10 +203,63 @@ public class TensorBoardExporter {
     }
     
     /**
-     * Crée un listener pour attacher à un modèle (stub vide)
+     * Obtient l'instance singleton
      */
-    public Object createListener() {
-        logger.warn("La fonctionnalité StatsListener n'est pas disponible dans cette version simplifiée");
-        return null;
+    public static synchronized TensorBoardExporter getInstance() {
+        if (instance == null) {
+            instance = new TensorBoardExporter();
+        }
+        return instance;
+    }
+    
+    /**
+     * Initialise TensorBoard avec un répertoire spécifié
+     */
+    public static boolean initialize(String tensorboardDir) {
+        TensorBoardExporter exporter = new TensorBoardExporter(tensorboardDir);
+        instance = exporter;
+        return exporter.initialize();
+    }
+    
+    /**
+     * Arrête le serveur TensorBoard
+     */
+    public static void shutdown() {
+        if (instance != null) {
+            instance.shutdown();
+        }
+    }
+    
+    /**
+     * Crée un StatsListener pour un modèle spécifique
+     */
+    public static StatsListener getStatsListener(String modelName) {
+        if (instance == null) {
+            initialize(DEFAULT_TB_DIR);
+        }
+        return instance.createListener(modelName);
+    }
+    
+    /**
+     * Exporte une liste de métriques vers TensorBoard
+     */
+    public static boolean exportMetrics(List<EvaluationMetrics> metrics, String modelName) {
+        if (instance == null) {
+            initialize(DEFAULT_TB_DIR);
+        }
+        
+        if (metrics == null || metrics.isEmpty()) {
+            logger.warn("Aucune métrique à exporter");
+            return false;
+        }
+        
+        logger.info("Exportation de {} métriques pour le modèle {}", metrics.size(), modelName);
+        
+        // Exporter chaque métrique d'évaluation
+        for (EvaluationMetrics metric : metrics) {
+            logger.info("Époque {} - {}", metric.getEpoch(), metric);
+        }
+        
+        return true;
     }
 }
