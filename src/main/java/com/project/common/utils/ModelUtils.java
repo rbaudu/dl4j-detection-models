@@ -147,10 +147,10 @@ public class ModelUtils {
      * Sauvegarde un modèle sur le disque
      * @param model Le modèle à sauvegarder
      * @param filePath Chemin où sauvegarder le modèle
-     * @param includeUpdater Indique s'il faut inclure l'état de l'optimiseur
+     * @param saveUpdater Indique s'il faut inclure l'état de l'optimiseur
      * @throws IOException Si une erreur survient lors de la sauvegarde
      */
-    public static void saveModel(MultiLayerNetwork model, String filePath, boolean includeUpdater) throws IOException {
+    public static void saveModel(MultiLayerNetwork model, String filePath, boolean saveUpdater) throws IOException {
         // Correction: Utiliser File au lieu de String
         File file = new File(filePath);
         
@@ -161,21 +161,22 @@ public class ModelUtils {
         }
         
         // Sauvegarder le modèle
-        ModelSerializer.writeModel(model, file, includeUpdater);
+        // Dans beta7, le paramètre s'appelle saveUpdater au lieu de includeUpdater
+        ModelSerializer.writeModel(model, file, saveUpdater);
     }
     
     /**
      * Exporte un modèle dans un format adapté pour DL4J
      * @param model Le modèle à exporter
      * @param filePath Chemin où sauvegarder le modèle
-     * @param includeUpdater Indique s'il faut inclure l'état de l'optimiseur
+     * @param saveUpdater Indique s'il faut inclure l'état de l'optimiseur
      * @param version Version du format d'export
      * @throws IOException Si une erreur survient lors de l'export
      */
-    public static void exportModelForDL4J(MultiLayerNetwork model, String filePath, boolean includeUpdater, int version) throws IOException {
+    public static void exportModelForDL4J(MultiLayerNetwork model, String filePath, boolean saveUpdater, int version) throws IOException {
         // Pour la compatibilité, utiliser simplement saveModel mais avec un log spécifique
         System.out.println("Exportation du modèle au format DL4J v" + version + " vers " + filePath);
-        saveModel(model, filePath, includeUpdater);
+        saveModel(model, filePath, saveUpdater);
     }
     
     /**
