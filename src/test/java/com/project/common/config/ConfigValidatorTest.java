@@ -42,13 +42,13 @@ public class ConfigValidatorTest {
     @Test
     public void testValidConfiguration() {
         assertTrue("La configuration valide devrait passer la validation", 
-                  ConfigValidator.validateConfig(validConfig));
+                  ConfigValidator.validateStaticConfig(validConfig));
     }
     
     @Test
     public void testInvalidConfiguration() {
         assertFalse("La configuration invalide ne devrait pas passer la validation", 
-                   ConfigValidator.validateConfig(invalidConfig));
+                   ConfigValidator.validateStaticConfig(invalidConfig));
     }
     
     @Test
@@ -62,7 +62,7 @@ public class ConfigValidatorTest {
         config.setProperty("activity.model.num.classes", "0");
         
         assertFalse("La configuration avec un nombre de classes invalide ne devrait pas passer", 
-                   ConfigValidator.validateConfig(config));
+                   ConfigValidator.validateStaticConfig(config));
     }
     
     @Test
@@ -76,7 +76,7 @@ public class ConfigValidatorTest {
         config.setProperty("activity.model.type", "UNKNOWN_TYPE");
         
         assertTrue("La configuration avec un type de modèle inconnu devrait passer avec avertissement", 
-                 ConfigValidator.validateConfig(config));
+                 ConfigValidator.validateStaticConfig(config));
     }
     
     @Test
@@ -90,7 +90,7 @@ public class ConfigValidatorTest {
         config.setProperty("activity.model.input.height", "-1");
         
         assertFalse("La configuration avec des dimensions d'image négatives ne devrait pas passer", 
-                   ConfigValidator.validateConfig(config));
+                   ConfigValidator.validateStaticConfig(config));
     }
     
     @Test
@@ -105,6 +105,6 @@ public class ConfigValidatorTest {
         }
         
         assertFalse("La configuration avec un chemin requis manquant ne devrait pas passer", 
-                   ConfigValidator.validateConfig(config));
+                   ConfigValidator.validateStaticConfig(config));
     }
 }
