@@ -102,10 +102,26 @@ public class ModelEvaluator {
         
         EvaluationMetrics metrics = new EvaluationMetrics(accuracy, precision, recall, f1, duration);
         
-        // Ajouter les métriques par classe (si disponibles)
+        // Déterminer le nombre de classes à partir des métriques disponibles
         try {
-            // Utiliser getClasses() qui est une méthode publique
-            int classCount = eval.getClasses().size();
+            // Utiliser les métriques par classe disponibles
+            Map<Integer, Integer> tpMap = eval.truePositives();
+            int classCount = 0;
+            
+            // Trouver l'index de classe le plus élevé
+            for (Integer classIndex : tpMap.keySet()) {
+                classCount = Math.max(classCount, classIndex + 1);
+            }
+            
+            if (classCount == 0) {
+                // Fallback au cas où aucune classe n'est trouvée
+                classCount = 2; // Valeur minimale pour la classification
+                logger.warn("Aucune classe détectée dans l'évaluation, utilisation de la valeur par défaut : {}", classCount);
+            }
+            
+            logger.debug("Nombre de classes détecté : {}", classCount);
+            
+            // Ajouter les métriques par classe
             for (int i = 0; i < classCount; i++) {
                 String className = "Classe-" + i;
                 double classPrecision = eval.precision(i);
@@ -114,19 +130,10 @@ public class ModelEvaluator {
                 
                 ClassMetrics classMetrics = new ClassMetrics(i, className, classPrecision, classRecall, classF1);
                 
-                // Sécurisation de l'accès aux TP/FP/FN selon l'API disponible
-                try {
-                    // Utiliser les méthodes disponibles dans l'API DL4J 1.0.0-beta7
-                    Map<Integer, Integer> tpMap = eval.truePositives();
-                    Map<Integer, Integer> fpMap = eval.falsePositives();
-                    Map<Integer, Integer> fnMap = eval.falseNegatives();
-                    
-                    classMetrics.setTruePositives(tpMap.getOrDefault(i, 0));
-                    classMetrics.setFalsePositives(fpMap.getOrDefault(i, 0));
-                    classMetrics.setFalseNegatives(fnMap.getOrDefault(i, 0));
-                } catch (Exception e) {
-                    logger.warn("Impossible d'accéder aux TP/FP/FN pour la classe {}: {}", i, e.getMessage());
-                }
+                // Récupérer les valeurs TP/FP/FN
+                classMetrics.setTruePositives(tpMap.getOrDefault(i, 0));
+                classMetrics.setFalsePositives(eval.falsePositives().getOrDefault(i, 0));
+                classMetrics.setFalseNegatives(eval.falseNegatives().getOrDefault(i, 0));
                 
                 metrics.addClassMetrics(i, classMetrics);
             }
