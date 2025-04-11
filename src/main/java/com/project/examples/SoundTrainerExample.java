@@ -1,7 +1,9 @@
 package com.project.examples;
 
 import com.project.common.utils.SpectrogramUtils;
+import com.project.training.MFCCSoundTrainer;
 import com.project.training.SoundTrainer;
+import com.project.training.SpectrogramSoundTrainer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,7 +15,7 @@ import java.io.IOException;
 import java.util.Properties;
 
 /**
- * Exemple d'utilisation du nouveau SoundTrainer refactorisé
+ * Exemple d'utilisation du SoundTrainer refactorisé
  * Montre comment entraîner différents types de modèles et traiter des fichiers audio
  */
 public class SoundTrainerExample {
@@ -94,7 +96,7 @@ public class SoundTrainerExample {
         config.setProperty("sound.model.type", "STANDARD");
         
         // Créer l'entraîneur
-        SoundTrainer trainer = new SoundTrainer(SoundTrainer.SoundTrainerType.MFCC, config);
+        MFCCSoundTrainer trainer = new MFCCSoundTrainer(config);
         
         // Entraîner le modèle
         trainer.trainOnSoundData(dataDir, 0.8);
@@ -121,7 +123,7 @@ public class SoundTrainerExample {
         config.setProperty("sound.model.architecture", "VGG16");
         
         // Créer l'entraîneur
-        SoundTrainer trainer = new SoundTrainer(SoundTrainer.SoundTrainerType.SPECTROGRAM_VGG16, config);
+        SpectrogramSoundTrainer trainer = new SpectrogramSoundTrainer(config, "VGG16");
         
         // Entraîner le modèle
         trainer.trainOnSoundData(dataDir, 0.8);
@@ -151,7 +153,7 @@ public class SoundTrainerExample {
         config.setProperty("sound.model.architecture", "ResNet");
         
         // Créer l'entraîneur
-        SoundTrainer trainer = new SoundTrainer(SoundTrainer.SoundTrainerType.SPECTROGRAM_RESNET, config);
+        SpectrogramSoundTrainer trainer = new SpectrogramSoundTrainer(config, "ResNet");
         
         // Entraîner le modèle
         trainer.trainOnSoundData(dataDir, 0.8);
