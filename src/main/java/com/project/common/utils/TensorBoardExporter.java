@@ -5,6 +5,7 @@ import org.deeplearning4j.ui.api.UIServer;
 import org.deeplearning4j.ui.model.stats.StatsListener;
 import org.deeplearning4j.ui.model.storage.FileStatsStorage;
 import org.deeplearning4j.ui.model.storage.InMemoryStatsStorage;
+import org.deeplearning4j.ui.storage.StatsStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,6 +28,7 @@ public class TensorBoardExporter {
     private static AtomicBoolean initialized = new AtomicBoolean(false);
     private static UIServer uiServer;
     private static FileStatsStorage statsStorage;
+    private static StatsStorage inMemoryStatsStorage;
     
     /**
      * Constructeur par défaut
@@ -79,7 +81,7 @@ public class TensorBoardExporter {
                 logger.info("Serveur TensorBoard démarré - Accédez à http://localhost:9000/train pour visualiser les métriques");
             } else {
                 // Stockage en mémoire
-                InMemoryStatsStorage inMemoryStatsStorage = new InMemoryStatsStorage();
+                inMemoryStatsStorage = new InMemoryStatsStorage();
                 
                 // Obtenir une instance du serveur UI
                 uiServer = UIServer.getInstance();
@@ -178,7 +180,7 @@ public class TensorBoardExporter {
         
         if (inMemory) {
             // Dans le cas d'un stockage en mémoire
-            return new StatsListener((InMemoryStatsStorage) uiServer.getStorageManager());
+            return new StatsListener(inMemoryStatsStorage);
         } else {
             // Dans le cas d'un stockage fichier
             return new StatsListener(statsStorage);
@@ -222,15 +224,6 @@ public class TensorBoardExporter {
     }
     
     /**
-     * Arrête le serveur TensorBoard
-     */
-    public static void shutdown() {
-        if (instance != null) {
-            instance.shutdown();
-        }
-    }
-    
-    /**
      * Crée un StatsListener pour un modèle spécifique
      */
     public static StatsListener getStatsListener(String modelName) {
@@ -261,5 +254,14 @@ public class TensorBoardExporter {
         }
         
         return true;
+    }
+    
+    /**
+     * Arrête le serveur TensorBoard (méthode statique)
+     */
+    public static void shutdownServer() {
+        if (instance != null) {
+            instance.shutdown();
+        }
     }
 }
