@@ -27,3 +27,24 @@ Plusieurs corrections ont été apportées pour rendre le code compatible avec D
    - Dans `SpectrogramSoundModelTester.java`, simplification de la vérification pour se concentrer sur le nombre de canaux d'entrée et le type de couche
 
 Ces modifications permettent une compilation réussie des tests unitaires et sont compatibles avec la version beta7 de DL4J.
+
+## Problèmes connus
+
+### Exceptions pendant les tests
+
+Lors de l'exécution des tests, vous pourriez observer des exceptions dans les logs, notamment durant l'exécution de `TensorBoardExporterTest`. Ces exceptions sont liées à la bibliothèque Netty (utilisée par Vertx et DL4J) qui tente d'accéder à des classes internes de Java :
+
+1. `UnsupportedOperationException: Reflective setAccessible(true) disabled`
+2. `IllegalAccessException: class io.netty.util.internal.PlatformDependent0$6 cannot access class jdk.internal.misc.Unsafe`
+
+**Note importante** : Ces exceptions n'affectent pas le bon fonctionnement des tests et peuvent être ignorées. Elles sont courantes avec les versions récentes de Java (Java 9+) qui ont renforcé le système de modules et de sécurité.
+
+### Solution optionnelle
+
+Si vous souhaitez supprimer ces messages d'erreur, vous pouvez ajouter les options suivantes à la JVM lors de l'exécution des tests :
+
+```
+--add-opens java.base/jdk.internal.misc=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED
+```
+
+Vous pouvez configurer ces options dans votre fichier `pom.xml` en ajoutant un plugin surefire avec ces arguments.
