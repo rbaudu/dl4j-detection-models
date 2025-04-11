@@ -49,6 +49,7 @@ public class MFCCSoundTrainer extends SoundTrainer {
         
         // Calculer la taille d'entrée
         int inputSize = numMfcc * mfccLength;
+        logger.info("Taille d'entrée du modèle MFCC: {}", inputSize);
         
         // Configurer le réseau
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
