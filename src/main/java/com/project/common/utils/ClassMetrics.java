@@ -119,13 +119,6 @@ public class ClassMetrics {
         this.falseNegatives = falseNegatives;
     }
     
-    /**
-     * Formate les métriques en pourcentages pour l'affichage
-     */
-    private String formatPercent(double value) {
-        return String.format("%.2f%%", value * 100);
-    }
-    
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -135,9 +128,10 @@ public class ClassMetrics {
             sb.append("Class ").append(classIndex).append(" - ");
         }
         
-        sb.append("Precision: ").append(formatPercent(precision))
-          .append(", Recall: ").append(formatPercent(recall))
-          .append(", F1: ").append(formatPercent(f1Score));
+        // Format avec les valeurs décimales exactes
+        sb.append("Precision: ").append(precision)
+          .append(", Recall: ").append(recall)
+          .append(", F1: ").append(f1Score);
         
         if (truePositives > 0 || falsePositives > 0 || falseNegatives > 0) {
             sb.append(", TP: ").append(truePositives)
