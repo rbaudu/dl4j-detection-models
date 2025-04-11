@@ -90,9 +90,9 @@ public class MetricsTracker implements TrainingListener {
         
         // Ajouter les métriques par classe (selon l'API disponible)
         try {
-            // Utiliser les méthodes de l'API disponible pour obtenir les classes
-            int numClasses = eval.numClasses();
-            for (int i = 0; i < numClasses; i++) {
+            // Utiliser les labels disponibles pour déterminer les classes
+            int classCount = eval.getClasses().size();
+            for (int i = 0; i < classCount; i++) {
                 String className = "Classe-" + i;
                 double classPrecision = eval.precision(i);
                 double classRecall = eval.recall(i);
@@ -103,9 +103,13 @@ public class MetricsTracker implements TrainingListener {
                 // Adaptation pour les valeurs de TP/FP/FN
                 try {
                     // Utiliser les méthodes disponibles dans l'API DL4J 1.0.0-beta7
-                    classMetrics.setTruePositives((int)eval.truePositives().getDouble(i));
-                    classMetrics.setFalsePositives((int)eval.falsePositives().getDouble(i));
-                    classMetrics.setFalseNegatives((int)eval.falseNegatives().getDouble(i));
+                    Map<Integer, Integer> tpMap = eval.truePositives();
+                    Map<Integer, Integer> fpMap = eval.falsePositives();
+                    Map<Integer, Integer> fnMap = eval.falseNegatives();
+                    
+                    classMetrics.setTruePositives(tpMap.getOrDefault(i, 0));
+                    classMetrics.setFalsePositives(fpMap.getOrDefault(i, 0));
+                    classMetrics.setFalseNegatives(fnMap.getOrDefault(i, 0));
                 } catch (Exception e) {
                     logger.warn("Impossible de récupérer TP/FP/FN: {}", e.getMessage());
                 }
