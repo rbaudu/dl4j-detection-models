@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -40,12 +41,12 @@ public class MetricsUtils {
         
         try (FileWriter writer = new FileWriter(outputFile)) {
             // En-tête
-            writer.write("Epoch,Accuracy,Precision,Recall,F1,Training_Time_ms\n");
+            writer.write("Epoch,Accuracy,Precision,Recall,F1Score,TrainingTime\n");
             
             // Données
             for (int i = 0; i < metrics.size(); i++) {
                 EvaluationMetrics metric = metrics.get(i);
-                writer.write(String.format("%d,%.4f,%.4f,%.4f,%.4f,%d\n", 
+                writer.write(String.format("%d,%.6f,%.6f,%.6f,%.6f,%d\n", 
                                           metric.getEpoch() > 0 ? metric.getEpoch() : i + 1, 
                                           metric.getAccuracy(), 
                                           metric.getPrecision(), 
@@ -91,6 +92,10 @@ public class MetricsUtils {
                                                double precisionThreshold,
                                                double recallThreshold,
                                                double f1Threshold) {
+        if (metrics == null) {
+            return false;
+        }
+        
         boolean allAboveThresholds = true;
         
         if (metrics.getAccuracy() < accuracyThreshold) {
@@ -124,13 +129,26 @@ public class MetricsUtils {
      * Méthode compatible avec les erreurs dans MetricsExampleUsage
      */
     public static boolean validateMetrics(EvaluationMetrics metrics, Properties config) {
-        // Obtenir les seuils depuis la configuration ou utiliser les valeurs par défaut
-        double accuracyThreshold = Double.parseDouble(config.getProperty("metrics.threshold.accuracy", "0.7"));
-        double precisionThreshold = Double.parseDouble(config.getProperty("metrics.threshold.precision", "0.7"));
-        double recallThreshold = Double.parseDouble(config.getProperty("metrics.threshold.recall", "0.7"));
-        double f1Threshold = Double.parseDouble(config.getProperty("metrics.threshold.f1", "0.7"));
+        if (metrics == null || config == null) {
+            return false;
+        }
         
-        return checkMetricsThresholds(metrics, accuracyThreshold, precisionThreshold, recallThreshold, f1Threshold);
+        try {
+            // Obtenir les seuils depuis la configuration ou utiliser les valeurs par défaut
+            double accuracyThreshold = Double.parseDouble(config.getProperty("metrics.threshold.accuracy", 
+                    config.getProperty("test.min.accuracy", "0.7")));
+            double precisionThreshold = Double.parseDouble(config.getProperty("metrics.threshold.precision", 
+                    config.getProperty("test.min.precision", "0.7")));
+            double recallThreshold = Double.parseDouble(config.getProperty("metrics.threshold.recall", 
+                    config.getProperty("test.min.recall", "0.7")));
+            double f1Threshold = Double.parseDouble(config.getProperty("metrics.threshold.f1", 
+                    config.getProperty("test.min.f1", "0.7")));
+            
+            return checkMetricsThresholds(metrics, accuracyThreshold, precisionThreshold, recallThreshold, f1Threshold);
+        } catch (NumberFormatException e) {
+            logger.error("Erreur de format dans les seuils de configuration: {}", e.getMessage());
+            return false;
+        }
     }
     
     /**
@@ -139,10 +157,20 @@ public class MetricsUtils {
     public static boolean generateModelComparisonReport(EvaluationMetrics[] metricsArray, 
                                                       String[] modelNames,
                                                       String outputPath) {
-        if (metricsArray == null || metricsArray.length == 0 || 
-            modelNames == null || modelNames.length != metricsArray.length) {
-            logger.warn("Paramètres invalides pour la comparaison de modèles");
+        if (metricsArray == null || metricsArray.length == 0) {
+            logger.warn("Paramètres invalides pour la comparaison de modèles: métriques nulles ou vides");
             return false;
+        }
+        
+        if (modelNames == null || modelNames.length == 0) {
+            logger.warn("Paramètres invalides pour la comparaison de modèles: noms de modèles nulls ou vides");
+            return false;
+        }
+        
+        if (modelNames.length != metricsArray.length) {
+            logger.warn("Paramètres invalides pour la comparaison de modèles: les tableaux de métriques et de noms n'ont pas la même taille");
+            // Lancer une exception ici pour le test qui attend une IllegalArgumentException
+            throw new IllegalArgumentException("Les tableaux de métriques et de noms doivent avoir la même taille");
         }
         
         File outputFile = new File(outputPath);
@@ -152,7 +180,7 @@ public class MetricsUtils {
         }
         
         try (FileWriter writer = new FileWriter(outputFile)) {
-            writer.write("=== Rapport de comparaison des modèles ===\n\n");
+            writer.write("=== RAPPORT DE COMPARAISON DES MODÈLES ===\n\n");
             
             writer.write("Modèle        | Accuracy | Precision | Recall  | F1-Score\n");
             writer.write("--------------|----------|-----------|---------|----------\n");
@@ -174,10 +202,10 @@ public class MetricsUtils {
             int bestF1Idx = findBestModelIndex(metricsArray, m -> m.getF1Score());
             
             writer.write("\n=== Modèles les plus performants ===\n");
-            writer.write("- Meilleure Accuracy:  " + modelNames[bestAccuracyIdx] + " (" + metricsArray[bestAccuracyIdx].getAccuracy() + ")\n");
+            writer.write("- Meilleure Accuracy: " + modelNames[bestAccuracyIdx] + " (" + metricsArray[bestAccuracyIdx].getAccuracy() + ")\n");
             writer.write("- Meilleure Precision: " + modelNames[bestPrecisionIdx] + " (" + metricsArray[bestPrecisionIdx].getPrecision() + ")\n");
-            writer.write("- Meilleur Recall:     " + modelNames[bestRecallIdx] + " (" + metricsArray[bestRecallIdx].getRecall() + ")\n");
-            writer.write("- Meilleur F1-Score:   " + modelNames[bestF1Idx] + " (" + metricsArray[bestF1Idx].getF1Score() + ")\n");
+            writer.write("- Meilleur Recall: " + modelNames[bestRecallIdx] + " (" + metricsArray[bestRecallIdx].getRecall() + ")\n");
+            writer.write("- Meilleur F1-Score: " + modelNames[bestF1Idx] + " (" + metricsArray[bestF1Idx].getF1Score() + ")\n");
             
             logger.info("Rapport de comparaison généré avec succès dans {}", outputFile.getAbsolutePath());
             return true;
