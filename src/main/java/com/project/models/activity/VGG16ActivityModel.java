@@ -167,6 +167,7 @@ public class VGG16ActivityModel {
         }
         
         if (vgg16Network != null) {
+            // Dans beta7, le paramètre s'appelle saveUpdater au lieu de includeUpdater
             org.deeplearning4j.util.ModelSerializer.writeModel(vgg16Network, modelFile, true);
             log.info("Modèle VGG16 sauvegardé avec succès");
         } else {
@@ -183,11 +184,12 @@ public class VGG16ActivityModel {
     public void exportModel(String exportPath) throws IOException {
         log.info("Exportation du modèle VGG16 de détection d'activité vers {}", exportPath);
         
-        boolean includeUpdater = Boolean.parseBoolean(config.getProperty("export.model.include.updater", "false"));
+        boolean saveUpdater = Boolean.parseBoolean(config.getProperty("export.model.include.updater", "false"));
         
         if (vgg16Network != null) {
             File modelFile = new File(exportPath);
-            org.deeplearning4j.util.ModelSerializer.writeModel(vgg16Network, modelFile, includeUpdater);
+            // Dans beta7, le paramètre s'appelle saveUpdater au lieu de includeUpdater
+            org.deeplearning4j.util.ModelSerializer.writeModel(vgg16Network, modelFile, saveUpdater);
             log.info("Modèle VGG16 exporté avec succès");
         } else {
             throw new IllegalStateException("Aucun modèle VGG16 à exporter");
