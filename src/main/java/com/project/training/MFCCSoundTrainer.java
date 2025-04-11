@@ -38,6 +38,7 @@ public class MFCCSoundTrainer extends SoundTrainer {
         
         logger.info("Initialisation de l'entraîneur MFCC avec {} coefficients et longueur {}", numMfcc, mfccLength);
         logger.info("Taille d'entrée calculée: {}", inputSize);
+        logger.info("Nombre de classes: {}", numClasses);
     }
     
     @Override
@@ -48,11 +49,16 @@ public class MFCCSoundTrainer extends SoundTrainer {
         // Obtenir la taille d'entrée réelle du modèle après création
         int actualInputSize = model.getLayer(0).getParam("W").columns();
         logger.info("Taille d'entrée réelle du modèle après initialisation: {}", actualInputSize);
+        
+        // Vérifier le nombre de classes en sortie
+        int actualOutputSize = model.getOutputLayer().getParam("W").rows();
+        logger.info("Nombre de classes en sortie: {}", actualOutputSize);
     }
     
     @Override
     protected MultiLayerNetwork createModel() {
         logger.info("Création du modèle MFCC avec taille d'entrée: {}", inputSize);
+        logger.info("Nombre de classes pour la couche de sortie: {}", numClasses);
         
         // Configurer le réseau
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
@@ -83,6 +89,10 @@ public class MFCCSoundTrainer extends SoundTrainer {
         // Vérifier la taille d'entrée après création
         int actualInputSize = model.getLayer(0).getParam("W").columns();
         logger.info("Taille d'entrée du modèle créé: {}", actualInputSize);
+        
+        // Vérifier le nombre de classes en sortie
+        int actualOutputSize = model.getOutputLayer().getParam("W").rows();
+        logger.info("Nombre de classes en sortie du modèle créé: {}", actualOutputSize);
         
         return model;
     }
@@ -115,5 +125,13 @@ public class MFCCSoundTrainer extends SoundTrainer {
      */
     public int getMfccLength() {
         return mfccLength;
+    }
+    
+    /**
+     * Retourne le nombre de classes
+     * @return Nombre de classes pour la classification
+     */
+    public int getNumClasses() {
+        return numClasses;
     }
 }
