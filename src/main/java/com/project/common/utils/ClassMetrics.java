@@ -1,5 +1,8 @@
 package com.project.common.utils;
 
+/**
+ * Classe pour stocker les métriques spécifiques à une classe.
+ */
 public class ClassMetrics {
     private int classIndex;
     private String className;
@@ -10,8 +13,7 @@ public class ClassMetrics {
     private int falsePositives;
     private int falseNegatives;
     
-    public ClassMetrics(int classIndex) {
-        this.classIndex = classIndex;
+    public ClassMetrics() {
     }
     
     public ClassMetrics(int classIndex, String className, double precision, double recall, double f1Score) {
@@ -22,7 +24,13 @@ public class ClassMetrics {
         this.f1Score = f1Score;
     }
     
-    // Getters et setters
+    public ClassMetrics(int classIndex, String className, double precision, double recall, double f1Score, 
+                        int truePositives, int falsePositives, int falseNegatives) {
+        this(classIndex, className, precision, recall, f1Score);
+        this.truePositives = truePositives;
+        this.falsePositives = falsePositives;
+        this.falseNegatives = falseNegatives;
+    }
     
     public int getClassIndex() {
         return classIndex;
@@ -90,9 +98,7 @@ public class ClassMetrics {
     
     @Override
     public String toString() {
-        return String.format("Classe %d (%s) - Precision: %.4f, Recall: %.4f, F1: %.4f, TP: %d, FP: %d, FN: %d", 
-                             classIndex, className != null ? className : "Inconnue", 
-                             precision, recall, f1Score, 
-                             truePositives, falsePositives, falseNegatives);
+        return String.format("Classe %d (%s) - Precision: %.4f, Recall: %.4f, F1: %.4f, TP: %d, FP: %d, FN: %d",
+                            classIndex, className, precision, recall, f1Score, truePositives, falsePositives, falseNegatives);
     }
 }
