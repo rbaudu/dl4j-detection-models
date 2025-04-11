@@ -38,6 +38,15 @@ public class SpectrogramSoundTrainer extends SoundTrainer {
         this.spectrogramWidth = Integer.parseInt(config.getProperty("sound.model.spectrogram.width", "224"));
         this.architecture = config.getProperty("sound.model.architecture", "STANDARD");
         
+        // Définir le type d'entraîneur selon l'architecture
+        if ("VGG16".equalsIgnoreCase(architecture)) {
+            this.trainerType = SoundTrainerType.SPECTROGRAM_VGG16;
+        } else if ("ResNet".equalsIgnoreCase(architecture)) {
+            this.trainerType = SoundTrainerType.SPECTROGRAM_RESNET;
+        } else {
+            this.trainerType = SoundTrainerType.SPECTROGRAM;
+        }
+        
         logger.info("Initialisation de l'entraîneur Spectrogram avec architecture {} et dimensions {}x{}", 
                    architecture, spectrogramHeight, spectrogramWidth);
     }
@@ -48,7 +57,21 @@ public class SpectrogramSoundTrainer extends SoundTrainer {
     public SpectrogramSoundTrainer(Properties config, String architecture) {
         this(config);
         this.architecture = architecture;
+        
+        // Mettre à jour le type selon l'architecture
+        if ("VGG16".equalsIgnoreCase(architecture)) {
+            this.trainerType = SoundTrainerType.SPECTROGRAM_VGG16;
+        } else if ("ResNet".equalsIgnoreCase(architecture)) {
+            this.trainerType = SoundTrainerType.SPECTROGRAM_RESNET;
+        }
+        
         logger.info("Architecture forcée à: {}", architecture);
+    }
+    
+    @Override
+    public void initializeModel() {
+        logger.info("Initialisation du modèle Spectrogram avec architecture {}", architecture);
+        model = createModel();
     }
     
     @Override
