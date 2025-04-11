@@ -117,9 +117,29 @@ public class EvaluationMetrics {
         this.classMetrics.put(classIndex, metrics);
     }
     
+    /**
+     * Formate les métriques en pourcentages pour l'affichage
+     */
+    private String formatPercent(double value) {
+        return String.format("%.2f%%", value * 100);
+    }
+    
     @Override
     public String toString() {
-        return String.format("Accuracy: %.4f, Precision: %.4f, Recall: %.4f, F1: %.4f, Temps: %.2f ms", 
-                             accuracy, precision, recall, f1Score, (double)timeInMs);
+        StringBuilder sb = new StringBuilder();
+        if (epoch > 0) {
+            sb.append("Epoch ").append(epoch).append(" - ");
+        }
+        
+        sb.append("Accuracy: ").append(formatPercent(accuracy))
+          .append(", Precision: ").append(formatPercent(precision))
+          .append(", Recall: ").append(formatPercent(recall))
+          .append(", F1: ").append(formatPercent(f1Score));
+        
+        if (timeInMs > 0) {
+            sb.append(", Time: ").append(timeInMs).append(" ms");
+        }
+        
+        return sb.toString();
     }
 }
