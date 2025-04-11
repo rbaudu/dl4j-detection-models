@@ -212,7 +212,8 @@ public class MetricsTracker implements TrainingListener {
     
     @Override
     public void onEpochStart(Model model) {
-        currentEpoch++;
+        // Incrémentation du compteur d'époques
+        this.currentEpoch = model.getEpochCount() > 0 ? model.getEpochCount() : this.currentEpoch + 1;
         logger.debug("Début de l'époque {}", currentEpoch);
     }
     
@@ -230,8 +231,11 @@ public class MetricsTracker implements TrainingListener {
             long endTime = System.currentTimeMillis();
             long duration = endTime - startTime;
             
+            // Utiliser le numéro d'époque du modèle ou notre compteur interne
+            int epoch = model.getEpochCount() > 0 ? model.getEpochCount() : this.currentEpoch;
+            
             // Enregistrer les métriques
-            recordEpoch(model, validationIterator, currentEpoch, duration);
+            recordEpoch(model, validationIterator, epoch, duration);
         }
     }
     
