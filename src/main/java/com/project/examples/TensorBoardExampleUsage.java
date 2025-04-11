@@ -76,7 +76,7 @@ public class TensorBoardExampleUsage {
         
         // Charger ou créer un modèle
         ActivityModel model = new ActivityModel(config);
-        model.initializeModel();
+        model.initNewModel();
         
         // Préparer des données fictives pour l'exemple
         ActivityTrainer trainer = new ActivityTrainer(config);
@@ -94,19 +94,33 @@ public class TensorBoardExampleUsage {
         StatsListener statsListener = TensorBoardExporter.getStatsListener("activity_model_direct");
         
         // Ajouter le StatsListener au modèle
-        model.getNetwork().setListeners(statsListener);
+        if (model.getNetwork() != null) {
+            model.getNetwork().setListeners(statsListener);
+        } else if (model.getGraphNetwork() != null) {
+            model.getGraphNetwork().setListeners(statsListener);
+        }
         
         // Simuler un entraînement simple (3 époques pour l'exemple)
         log.info("Simulation d'un entraînement avec suivi TensorBoard en direct...");
         for (int epoch = 1; epoch <= 3; epoch++) {
             // Définir manuellement l'époque courante pour la configuration
-            model.getNetwork().getLayerWiseConfigurations().setEpochCount(epoch);
+            if (model.getNetwork() != null) {
+                model.getNetwork().getLayerWiseConfigurations().setEpochCount(epoch);
+                model.getNetwork().fit(trainIterator);
+            } else if (model.getGraphNetwork() != null) {
+                model.getGraphNetwork().getConfiguration().setEpochCount(epoch);
+                model.getGraphNetwork().fit(trainIterator);
+            }
             
-            model.getNetwork().fit(trainIterator);
             trainIterator.reset();
             
             // Évaluer le modèle après chaque époque
-            model.getNetwork().evaluate(testIterator);
+            if (model.getNetwork() != null) {
+                model.getNetwork().evaluate(testIterator);
+            } else if (model.getGraphNetwork() != null) {
+                model.getGraphNetwork().evaluate(testIterator);
+            }
+            
             testIterator.reset();
         }
         
@@ -142,7 +156,7 @@ public class TensorBoardExampleUsage {
         
         // Créer un modèle pour l'exemple
         ActivityModel model = new ActivityModel(config);
-        model.initializeModel();
+        model.initNewModel();
         
         // Préparer des données fictives pour l'exemple
         ActivityTrainer trainer = new ActivityTrainer(config);
@@ -156,30 +170,44 @@ public class TensorBoardExampleUsage {
         DataSetIterator testIterator = new ListDataSetIterator<>(
             Collections.singletonList(testData), 32);
         
-        // Créer un MetricsTracker avec export TensorBoard activé
+        // Créer un MetricsTracker
         MetricsTracker tracker = new MetricsTracker(
-            testIterator, 
-            1, 
-            "output/metrics", 
-            "activity_model_tracker", 
-            true  // Activer TensorBoard
-        );
+            "activity_model_tracker", "output/metrics");
+        
+        // Configurer le tracker avec l'itérateur de validation
+        tracker = new MetricsTracker(testIterator, 3, "activity_model_tracker", "output/metrics");
         
         // Ajouter le tracker comme listener au modèle
-        model.getNetwork().setListeners(tracker);
+        if (model.getNetwork() != null) {
+            model.getNetwork().setListeners(tracker);
+        } else if (model.getGraphNetwork() != null) {
+            model.getGraphNetwork().setListeners(tracker);
+        }
         
         // Simuler un entraînement (3 époques pour l'exemple)
         log.info("Simulation d'un entraînement avec MetricsTracker et TensorBoard...");
         for (int epoch = 1; epoch <= 3; epoch++) {
-            // Simuler le début de l'époque
-            tracker.onEpochStart(model.getNetwork());
+            if (model.getNetwork() != null) {
+                // Simuler le début de l'époque
+                tracker.onEpochStart(model.getNetwork());
+                
+                // Exécuter l'entraînement
+                model.getNetwork().fit(trainIterator);
+                
+                // Simuler la fin de l'époque
+                tracker.onEpochEnd(model.getNetwork());
+            } else if (model.getGraphNetwork() != null) {
+                // Simuler le début de l'époque
+                tracker.onEpochStart(model.getGraphNetwork());
+                
+                // Exécuter l'entraînement
+                model.getGraphNetwork().fit(trainIterator);
+                
+                // Simuler la fin de l'époque
+                tracker.onEpochEnd(model.getGraphNetwork());
+            }
             
-            // Exécuter l'entraînement
-            model.getNetwork().fit(trainIterator);
             trainIterator.reset();
-            
-            // Simuler la fin de l'époque
-            tracker.onEpochEnd(model.getNetwork());
             
             // Le tracker exportera automatiquement les métriques vers TensorBoard
         }
@@ -251,10 +279,15 @@ public class TensorBoardExampleUsage {
             
             // Créer un modèle
             ActivityModel model = new ActivityModel(config);
-            model.initializeModel();
+            model.initNewModel();
             
             // Ajouter un StatsListener pour collecter les statistiques
-            model.getNetwork().setListeners(new StatsListener(statsStorage));
+            StatsListener listener = new StatsListener(statsStorage);
+            if (model.getNetwork() != null) {
+                model.getNetwork().setListeners(listener);
+            } else if (model.getGraphNetwork() != null) {
+                model.getGraphNetwork().setListeners(listener);
+            }
             
             // Ici, vous pourriez entraîner le modèle comme d'habitude
             // model.getNetwork().fit(trainData);
