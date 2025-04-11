@@ -219,7 +219,7 @@ public class SpectrogramSoundTrainer extends SoundTrainer {
                         .stride(1, 1)
                         .activation(Activation.RELU)
                         .build())
-                .layer(5, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.AVGPOOL)
+                .layer(5, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.AVG)
                         .kernelSize(7, 7)
                         .stride(1, 1)
                         .build())
