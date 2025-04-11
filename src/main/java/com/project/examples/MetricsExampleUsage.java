@@ -3,10 +3,8 @@ package com.project.examples;
 import com.project.common.config.ConfigLoader;
 import com.project.common.utils.EvaluationMetrics;
 import com.project.common.utils.MetricsTracker;
-import com.project.common.utils.MetricsUtils;
 import com.project.common.utils.MetricsVisualizer;
 import com.project.common.utils.ModelEvaluator;
-import com.project.models.ModelValidator;
 import com.project.models.activity.ActivityModel;
 import com.project.training.ActivityTrainer;
 import org.deeplearning4j.datasets.iterator.impl.ListDataSetIterator;
@@ -66,21 +64,15 @@ public class MetricsExampleUsage {
         ActivityTrainer trainer = new ActivityTrainer(config);
         DataSet testData = trainer.prepareData("data/raw/activity", 0.2)[1];
         
-        // Créer un évaluateur de modèle avec les noms de classes
-        List<String> classLabels = Arrays.asList(
-            "CLEANING", "CONVERSING", "COOKING", "DANCING", "EATING",
-            "FEEDING", "GOING_TO_SLEEP", "KNITTING", "IRONING", "LISTENING_MUSIC",
-            "MOVING", "NEEDING_HELP", "PHONING", "PLAYING", "PLAYING_MUSIC",
-            "PUTTING_AWAY", "READING", "RECEIVING", "SINGING", "SLEEPING",
-            "UNKNOWN", "USING_SCREEN", "WAITING", "WAKING_UP", "WASHING",
-            "WATCHING_TV", "WRITING"
-        );
+        // Créer un évaluateur de modèle
+        ModelEvaluator evaluator = new ModelEvaluator("activity_model", "output/metrics");
         
-        ModelEvaluator evaluator = new ModelEvaluator(model.getNetwork(), config)
-            .withLabels(classLabels);
+        // Convertir le DataSet en DataSetIterator pour l'évaluation
+        DataSetIterator testIterator = new ListDataSetIterator<>(
+            Collections.singletonList(testData), 32);
         
         // Évaluer le modèle et générer un rapport
-        EvaluationMetrics metrics = evaluator.evaluateAndGenerateReport(testData, "activity_model");
+        EvaluationMetrics metrics = evaluator.evaluateAndGenerateReport(model.getNetwork(), testIterator);
         
         // Afficher un résumé des métriques
         log.info("Résumé des métriques:");
@@ -90,7 +82,7 @@ public class MetricsExampleUsage {
         log.info("  F1-Score: {}", metrics.getF1Score());
         
         // Vérifier si les métriques respectent les seuils minimaux
-        boolean valid = MetricsUtils.validateMetrics(metrics, config);
+        boolean valid = evaluator.checkQualityThresholds(metrics);
         log.info("Les métriques respectent les seuils minimaux: {}", valid);
     }
     
@@ -102,7 +94,7 @@ public class MetricsExampleUsage {
         
         // Créer un modèle
         ActivityModel model = new ActivityModel(config);
-        model.initializeModel();
+        model.initNewModel();
         
         // Préparer des données d'entraînement et de validation
         // Note: Dans un cas réel, vous utiliseriez de vraies données
@@ -120,18 +112,31 @@ public class MetricsExampleUsage {
         // Créer un tracker de métriques
         String outputDir = "output/metrics";
         MetricsTracker tracker = new MetricsTracker(
-            validationIterator, 1, outputDir, "activity_model");
+            validationIterator, 5, "activity_model", outputDir);
         
         // Ajouter le tracker comme listener au modèle
-        model.getNetwork().setListeners(tracker);
+        if (model.getNetwork() != null) {
+            model.getNetwork().setListeners(tracker);
+        } else if (model.getGraphNetwork() != null) {
+            model.getGraphNetwork().setListeners(tracker);
+        }
         
         // Simuler un entraînement (5 époques pour l'exemple)
         log.info("Simulation de l'entraînement avec suivi des métriques...");
         for (int epoch = 0; epoch < 5; epoch++) {
-            model.getNetwork().fit(trainIterator);
+            if (model.getNetwork() != null) {
+                model.getNetwork().fit(trainIterator);
+            } else if (model.getGraphNetwork() != null) {
+                model.getGraphNetwork().fit(trainIterator);
+            }
             trainIterator.reset();
             
-            // Le tracker collecte automatiquement les métriques à la fin de chaque époque
+            // Enregistrer manuellement les métriques pour l'exemple
+            if (model.getNetwork() != null) {
+                tracker.recordEpoch(model.getNetwork(), validationIterator, epoch+1, 1000);
+            } else if (model.getGraphNetwork() != null) {
+                tracker.recordEpoch(model.getGraphNetwork(), validationIterator, epoch+1, 1000);
+            }
         }
         
         // Générer des graphiques à partir des métriques collectées
@@ -152,24 +157,28 @@ public class MetricsExampleUsage {
         
         // Modèle 1: VGG16
         EvaluationMetrics vgg16Metrics = new EvaluationMetrics(
-            100, 0.92, 0.89, 0.91, 0.90, 15000);
+            0.92, 0.89, 0.91, 0.90);
+        vgg16Metrics.setEpoch(100);
+        vgg16Metrics.setTimeInMs(15000);
         
         // Modèle 2: ResNet
         EvaluationMetrics resnetMetrics = new EvaluationMetrics(
-            100, 0.94, 0.92, 0.90, 0.91, 18000);
+            0.94, 0.92, 0.90, 0.91);
+        resnetMetrics.setEpoch(100);
+        resnetMetrics.setTimeInMs(18000);
         
         // Modèle 3: MobileNetV2
         EvaluationMetrics mobileNetMetrics = new EvaluationMetrics(
-            100, 0.88, 0.87, 0.89, 0.88, 8000);
+            0.88, 0.87, 0.89, 0.88);
+        mobileNetMetrics.setEpoch(100);
+        mobileNetMetrics.setTimeInMs(8000);
         
-        // Générer un rapport de comparaison
-        String outputPath = "output/metrics/model_comparison.txt";
-        MetricsUtils.generateModelComparisonReport(
-            new EvaluationMetrics[] { vgg16Metrics, resnetMetrics, mobileNetMetrics },
-            new String[] { "VGG16", "ResNet", "MobileNet" },
-            outputPath
-        );
+        // Afficher les métriques comparatives
+        log.info("Comparaison des modèles:");
+        log.info("VGG16: {}", vgg16Metrics);
+        log.info("ResNet: {}", resnetMetrics);
+        log.info("MobileNet: {}", mobileNetMetrics);
         
-        log.info("Rapport de comparaison généré dans {}", outputPath);
+        // Dans une application réelle, vous pourriez générer un rapport détaillé ou des visualisations
     }
 }
