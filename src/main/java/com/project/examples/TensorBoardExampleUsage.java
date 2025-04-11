@@ -52,7 +52,7 @@ public class TensorBoardExampleUsage {
             useWithMetricsTracker(config);
             
             // Arrêter proprement TensorBoard
-            TensorBoardExporter.shutdown();
+            TensorBoardExporter.shutdownServer();
             
             log.info("Exemple d'utilisation de TensorBoard terminé avec succès");
             log.info("Pour visualiser les métriques, lancez TensorBoard en pointant vers le répertoire {} :", tensorBoardDir);
