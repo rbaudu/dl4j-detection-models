@@ -202,10 +202,17 @@ public class MetricsUtils {
             int bestF1Idx = findBestModelIndex(metricsArray, m -> m.getF1Score());
             
             writer.write("\n=== Modèles les plus performants ===\n");
-            writer.write("- Meilleure Accuracy: " + modelNames[bestAccuracyIdx] + " (" + metricsArray[bestAccuracyIdx].getAccuracy() + ")\n");
-            writer.write("- Meilleure Precision: " + modelNames[bestPrecisionIdx] + " (" + metricsArray[bestPrecisionIdx].getPrecision() + ")\n");
-            writer.write("- Meilleur Recall: " + modelNames[bestRecallIdx] + " (" + metricsArray[bestRecallIdx].getRecall() + ")\n");
-            writer.write("- Meilleur F1-Score: " + modelNames[bestF1Idx] + " (" + metricsArray[bestF1Idx].getF1Score() + ")\n");
+            
+            // Modification pour afficher les valeurs brutes au lieu de les formatter
+            double accuracy = metricsArray[bestAccuracyIdx].getAccuracy();
+            double precision = metricsArray[bestPrecisionIdx].getPrecision();
+            double recall = metricsArray[bestRecallIdx].getRecall();
+            double f1Score = metricsArray[bestF1Idx].getF1Score();
+            
+            writer.write("- Meilleure Accuracy: " + modelNames[bestAccuracyIdx] + " (" + accuracy + ")\n");
+            writer.write("- Meilleure Precision: " + modelNames[bestPrecisionIdx] + " (" + precision + ")\n");
+            writer.write("- Meilleur Recall: " + modelNames[bestRecallIdx] + " (" + recall + ")\n");
+            writer.write("- Meilleur F1-Score: " + modelNames[bestF1Idx] + " (" + f1Score + ")\n");
             
             logger.info("Rapport de comparaison généré avec succès dans {}", outputFile.getAbsolutePath());
             return true;
