@@ -82,9 +82,6 @@ public class MetricsTrackerTest {
     
     @Test
     public void testOnEpochEnd() {
-        // Définir le numéro d'époque pour le modèle
-        model.setEpochCount(1);
-        
         // Appeler onEpochStart puis onEpochEnd pour simuler un cycle complet
         tracker.onEpochStart(model);
         tracker.onEpochEnd(model);
@@ -112,7 +109,6 @@ public class MetricsTrackerTest {
     public void testMultipleEpochs() {
         // Simuler plusieurs époques
         for (int epoch = 1; epoch <= 3; epoch++) {
-            model.setEpochCount(epoch);
             tracker.onEpochStart(model); // Important d'appeler onEpochStart
             tracker.onEpochEnd(model);
         }
@@ -134,7 +130,6 @@ public class MetricsTrackerTest {
     public void testExportMetricsToCSV() throws IOException {
         // Simuler quelques époques
         for (int epoch = 1; epoch <= 3; epoch++) {
-            model.setEpochCount(epoch);
             tracker.onEpochStart(model);
             tracker.onEpochEnd(model);
         }
@@ -185,7 +180,6 @@ public class MetricsTrackerTest {
         MetricsTracker nullTracker = new MetricsTracker(null, 1, "null_test", outputDir);
         
         // Appeler onEpochEnd ne devrait pas provoquer d'exception
-        model.setEpochCount(1);
         nullTracker.onEpochStart(model);
         nullTracker.onEpochEnd(model);
         
