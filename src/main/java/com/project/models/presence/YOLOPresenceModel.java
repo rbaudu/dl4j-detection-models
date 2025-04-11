@@ -136,6 +136,7 @@ public class YOLOPresenceModel {
         
         if (yoloNetwork != null) {
             // Sauvegarder comme ComputationGraph
+            // Dans beta7, le paramètre s'appelle saveUpdater au lieu de includeUpdater
             org.deeplearning4j.util.ModelSerializer.writeModel(yoloNetwork, modelFile, true);
             log.info("Modèle YOLO sauvegardé avec succès");
         } else {
@@ -152,12 +153,12 @@ public class YOLOPresenceModel {
     public void exportModel(String exportPath) throws IOException {
         log.info("Exportation du modèle YOLO de détection de présence vers {}", exportPath);
         
-        boolean includeUpdater = Boolean.parseBoolean(config.getProperty("export.model.include.updater", "false"));
+        boolean saveUpdater = Boolean.parseBoolean(config.getProperty("export.model.include.updater", "false"));
         
         if (yoloNetwork != null) {
             // Exporter comme ComputationGraph
             File modelFile = new File(exportPath);
-            org.deeplearning4j.util.ModelSerializer.writeModel(yoloNetwork, modelFile, includeUpdater);
+            org.deeplearning4j.util.ModelSerializer.writeModel(yoloNetwork, modelFile, saveUpdater);
             log.info("Modèle YOLO exporté avec succès");
         } else {
             throw new IllegalStateException("Aucun modèle YOLO à exporter");
