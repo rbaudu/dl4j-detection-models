@@ -80,11 +80,11 @@ public class EvaluationMetricsTest {
         assertTrue(str.length() > 0);
         
         // Vérifier que la chaîne contient les informations attendues
-        // Note: le format exact peut avoir changé
-        assertTrue(str.contains("0.85") || str.contains("85%"));  // Accuracy
-        assertTrue(str.contains("0.80") || str.contains("80%"));  // Precision
-        assertTrue(str.contains("0.75") || str.contains("75%"));  // Recall
-        assertTrue(str.contains("0.77") || str.contains("77%"));  // F1
+        // Ces assertions devraient passer avec les nouvelles implémentations
+        String expectedText = "Epoch 1 - Accuracy: 0.85, Precision: 0.8, Recall: 0.75, F1: 0.77";
+        assertTrue("La chaîne doit contenir les bonnes informations", str.contains(expectedText) || 
+                   str.startsWith(expectedText) || 
+                   str.equals(expectedText));
     }
     
     @Test
@@ -108,9 +108,14 @@ public class EvaluationMetricsTest {
         assertNotNull(str);
         assertTrue(str.length() > 0);
         
-        // Vérifier que le contenu a bien les valeurs attendues, mais pas forcément le format exact
-        assertTrue(str.contains("0.9") || str.contains("90%"));   // Precision
-        assertTrue(str.contains("0.85") || str.contains("85%"));  // Recall
-        assertTrue(str.contains("0.87") || str.contains("87%"));  // F1
+        // Vérification simplifiée de la présence des valeurs clés
+        assertTrue("La chaîne doit contenir la précision", str.contains("Precision"));
+        assertTrue("La chaîne doit contenir le rappel", str.contains("Recall"));
+        assertTrue("La chaîne doit contenir le F1", str.contains("F1"));
+        
+        // Vérifier la présence des valeurs numériques
+        assertTrue("La chaîne doit contenir la valeur 0.9", str.contains("0.9"));
+        assertTrue("La chaîne doit contenir la valeur 0.85", str.contains("0.85"));
+        assertTrue("La chaîne doit contenir la valeur 0.87", str.contains("0.87"));
     }
 }
