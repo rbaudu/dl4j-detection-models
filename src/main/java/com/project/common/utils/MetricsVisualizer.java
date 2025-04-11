@@ -150,10 +150,10 @@ public class MetricsVisualizer {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
         
         // Ajouter les données pour chaque classe
-        Map<Integer, EvaluationMetrics.ClassMetrics> classMetricsMap = metrics.getPerClassMetrics();
-        for (Map.Entry<Integer, EvaluationMetrics.ClassMetrics> entry : classMetricsMap.entrySet()) {
+        Map<Integer, ClassMetrics> classMetricsMap = metrics.getPerClassMetrics();
+        for (Map.Entry<Integer, ClassMetrics> entry : classMetricsMap.entrySet()) {
             int classIndex = entry.getKey();
-            EvaluationMetrics.ClassMetrics classMetrics = entry.getValue();
+            ClassMetrics classMetrics = entry.getValue();
             
             String className = "Classe " + classIndex;
             dataset.addValue(classMetrics.getPrecision(), "Precision", className);
