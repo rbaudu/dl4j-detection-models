@@ -33,6 +33,7 @@ public abstract class SoundTrainer {
     protected String dataDir;
     protected String modelOutputPath;
     protected MultiLayerNetwork model;
+    protected SoundTrainerType trainerType;
     
     /**
      * Constructeur avec configuration
@@ -51,6 +52,13 @@ public abstract class SoundTrainer {
         this.dataDir = config.getProperty("data.root.dir", "") + "/sound";
         this.modelOutputPath = config.getProperty("models.root.dir", "") + "/sound";
         
+        // Définir le type d'entraîneur par défaut
+        if ("SPECTROGRAM".equals(modelType)) {
+            this.trainerType = SoundTrainerType.SPECTROGRAM_VGG16;
+        } else {
+            this.trainerType = SoundTrainerType.MFCC;
+        }
+        
         // Utiliser un générateur de nombres aléatoires fiable
         Random rng = new Random(seed);
     }
@@ -60,6 +68,7 @@ public abstract class SoundTrainer {
      */
     public SoundTrainer(SoundTrainerType type, Properties config) {
         this(config);
+        this.trainerType = type;
         logger.info("Création d'un entraîneur de sons de type: {}", type);
     }
     
@@ -91,6 +100,11 @@ public abstract class SoundTrainer {
         // Implémentation spécifique à chaque sous-classe
         return train();
     }
+    
+    /**
+     * Initialise le modèle avec la configuration
+     */
+    public abstract void initializeModel();
     
     /**
      * Entraîne le modèle avec les données disponibles
@@ -135,6 +149,20 @@ public abstract class SoundTrainer {
         logger.info("Chemin du modèle: {}", modelOutputPath);
         logger.info("=== Fin des paramètres d'entraînement ===");
         LoggingUtils.logSeparator();
+    }
+    
+    /**
+     * Retourne le type d'entraîneur
+     */
+    public SoundTrainerType getTrainerType() {
+        return trainerType;
+    }
+    
+    /**
+     * Définit le type d'entraîneur
+     */
+    public void setTrainerType(SoundTrainerType trainerType) {
+        this.trainerType = trainerType;
     }
     
     /**
