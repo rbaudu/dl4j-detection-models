@@ -6,7 +6,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.nd4j.evaluation.classification.Evaluation;
+import org.deeplearning4j.eval.Evaluation;
 
 import java.io.File;
 import java.util.ArrayList;
