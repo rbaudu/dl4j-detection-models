@@ -1,11 +1,14 @@
 package com.project.common.utils;
 
+import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.factory.Nd4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
 import java.io.File;
 import java.io.IOException;
 import java.util.Random;
@@ -177,5 +180,46 @@ public class SpectrogramUtils {
      */
     private static int normalizeValue(int value, int min, int max) {
         return (int) (255.0 * (value - min) / (max - min));
+    }
+    
+    /**
+     * Convertit un fichier audio en spectrogramme puis en INDArray pour traitement par DL4J
+     * 
+     * @param audioFile Fichier audio
+     * @param height Hauteur du spectrogramme
+     * @param width Largeur du spectrogramme
+     * @param channels Nombre de canaux (généralement 1 pour les spectrogrammes)
+     * @return INDArray contenant les données du spectrogramme
+     * @throws IOException Si une erreur survient lors du traitement
+     */
+    public static INDArray audioToSpectrogramINDArray(File audioFile, int height, int width, int channels) throws IOException {
+        // Générer le spectrogramme
+        BufferedImage spectrogram = generateSpectrogram(audioFile, height, width);
+        
+        // Normaliser et redimensionner si nécessaire
+        spectrogram = normalizeSpectrogram(spectrogram);
+        if (spectrogram.getWidth() != width || spectrogram.getHeight() != height) {
+            spectrogram = resizeSpectrogram(spectrogram, width, height);
+        }
+        
+        // Créer l'INDArray de la bonne taille pour un seul exemple [1, canaux, hauteur, largeur]
+        INDArray result = Nd4j.zeros(1, channels, height, width);
+        
+        // Remplir l'INDArray avec les valeurs de l'image
+        // Ici on normalise également les valeurs entre 0 et 1
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                Color c = new Color(spectrogram.getRGB(x, y));
+                
+                // Pour un spectrogramme, on peut utiliser la moyenne des composantes RGB
+                // ou simplement la composante rouge si c'est un spectrogramme en niveaux de gris
+                float value = (c.getRed() + c.getGreen() + c.getBlue()) / (3.0f * 255.0f);
+                
+                // Assigner la valeur à l'INDArray
+                result.putScalar(0, 0, y, x, value);
+            }
+        }
+        
+        return result;
     }
 }
