@@ -25,6 +25,7 @@ public class TensorBoardExporterTest {
 
     private String tensorBoardDir;
     private List<EvaluationMetrics> sampleMetrics;
+    private TensorBoardExporter exporter;
 
     @Before
     public void setUp() throws Exception {
@@ -45,7 +46,7 @@ public class TensorBoardExporterTest {
                 Math.min(baseValue - 0.05 + improvement, 1.0),
                 Math.min(baseValue - 0.1 + improvement, 1.0),
                 Math.min(baseValue - 0.08 + improvement, 1.0),
-                100.0 * epoch
+                100L * epoch
             );
 
             // Ajouter quelques métriques par classe
@@ -60,46 +61,42 @@ public class TensorBoardExporterTest {
 
             sampleMetrics.add(metrics);
         }
+        
+        // Créer une instance de TensorBoardExporter pour les tests
+        exporter = new TensorBoardExporter(tensorBoardDir);
     }
 
     @After
     public void tearDown() {
         // Arrêter proprement TensorBoard
-        TensorBoardExporter.shutdown();
+        exporter.shutdown();
     }
 
     @Test
     public void testInitialize() {
         // Tester l'initialisation avec un répertoire valide
-        boolean result = TensorBoardExporter.initialize(tensorBoardDir);
+        boolean result = exporter.initialize();
         assertTrue("L'initialisation devrait réussir avec un répertoire valide", result);
 
         // Vérifier qu'un fichier de stats est créé dans le répertoire
-        File statsFile = new File(tensorBoardDir, "dl4j-stats.bin");
+        File statsFile = new File(tensorBoardDir, "ui-stats.bin");
         assertTrue("Un fichier de stats devrait être créé", statsFile.exists());
-    }
-
-    @Test
-    public void testInitializeInMemory() {
-        // Tester l'initialisation en mémoire
-        boolean result = TensorBoardExporter.initializeInMemory();
-        assertTrue("L'initialisation en mémoire devrait réussir", result);
     }
 
     @Test
     public void testGetStatsListener() {
         // Initialiser TensorBoard
-        TensorBoardExporter.initialize(tensorBoardDir);
+        exporter.initialize();
 
         // Récupérer un StatsListener
-        StatsListener listener = TensorBoardExporter.getStatsListener("test_model");
+        StatsListener listener = exporter.createListener("test_model");
         assertNotNull("Un StatsListener devrait être créé", listener);
     }
 
     @Test
     public void testExportMetrics() {
         // Initialiser TensorBoard
-        TensorBoardExporter.initialize(tensorBoardDir);
+        exporter.initialize();
 
         // Exporter les métriques
         boolean result = TensorBoardExporter.exportMetrics(sampleMetrics, "test_metrics");
@@ -109,7 +106,7 @@ public class TensorBoardExporterTest {
     @Test
     public void testExportEvaluation() {
         // Initialiser TensorBoard
-        TensorBoardExporter.initialize(tensorBoardDir);
+        exporter.initialize();
         
         // Créer une évaluation fictive
         Evaluation eval = new Evaluation(3); // 3 classes
@@ -128,27 +125,24 @@ public class TensorBoardExporterTest {
         }
         
         // Exporter l'évaluation
-        boolean result = TensorBoardExporter.exportEvaluation(eval, 1, "test_eval");
+        boolean result = exporter.exportEvaluation(eval, 1);
         assertTrue("L'exportation de l'évaluation devrait réussir", result);
     }
     
     @Test
-    public void testExportFromConfig() {
+    public void testFromConfig() {
         // Créer une configuration de test
         Properties config = new Properties();
-        config.setProperty("tensorboard.log.dir", tensorBoardDir);
-        config.setProperty("tensorboard.enabled", "true");
+        config.setProperty("tensorboard.dir", tensorBoardDir);
+        config.setProperty("tensorboard.in.memory", "false");
         
-        // Exporter les métriques avec la configuration
-        boolean result = TensorBoardExporter.exportFromConfig(sampleMetrics, config, "config_test");
-        assertTrue("L'exportation depuis la configuration devrait réussir", result);
+        // Créer un exporter à partir de la configuration
+        TensorBoardExporter configExporter = TensorBoardExporter.fromConfig(config);
+        assertNotNull("Un exporter devrait être créé à partir de la configuration", configExporter);
         
-        // Tester avec TensorBoard désactivé
-        Properties disabledConfig = new Properties();
-        disabledConfig.setProperty("tensorboard.enabled", "false");
-        
-        result = TensorBoardExporter.exportFromConfig(sampleMetrics, disabledConfig, "disabled_test");
-        assertFalse("L'exportation devrait échouer quand TensorBoard est désactivé", result);
+        // Initialiser l'exporter
+        boolean result = configExporter.initialize();
+        assertTrue("L'initialisation depuis la configuration devrait réussir", result);
     }
     
     @Test
@@ -156,7 +150,8 @@ public class TensorBoardExporterTest {
         // Tester l'initialisation avec un chemin qui nécessite la création de plusieurs répertoires
         String deepPath = tensorBoardDir + "/deep/path/to/logs";
         
-        boolean result = TensorBoardExporter.initialize(deepPath);
+        TensorBoardExporter deepExporter = new TensorBoardExporter(deepPath);
+        boolean result = deepExporter.initialize();
         assertTrue("L'initialisation devrait créer les répertoires manquants", result);
         
         // Vérifier que les répertoires ont été créés
@@ -167,34 +162,31 @@ public class TensorBoardExporterTest {
     @Test
     public void testMultipleInitialization() {
         // La première initialisation devrait réussir
-        boolean result1 = TensorBoardExporter.initialize(tensorBoardDir);
+        boolean result1 = exporter.initialize();
         assertTrue("La première initialisation devrait réussir", result1);
         
-        // Une seconde initialisation devrait également réussir
-        boolean result2 = TensorBoardExporter.initialize(tensorBoardDir + "/second");
+        // Une seconde initialisation devrait également réussir (car déjà initialisé)
+        boolean result2 = exporter.initialize();
         assertTrue("La seconde initialisation devrait réussir", result2);
     }
     
     @Test
     public void testShutdown() {
         // Initialiser TensorBoard
-        TensorBoardExporter.initialize(tensorBoardDir);
+        exporter.initialize();
         
         // Arrêter TensorBoard
-        TensorBoardExporter.shutdown();
+        exporter.shutdown();
         
         // Une nouvelle initialisation devrait réussir après l'arrêt
-        boolean result = TensorBoardExporter.initialize(tensorBoardDir);
+        boolean result = exporter.initialize();
         assertTrue("L'initialisation après arrêt devrait réussir", result);
     }
     
     @Test
     public void testExportMetricsWithoutInitialization() {
-        // Réinitialiser d'abord (pour s'assurer qu'il n'y a pas d'initialisation antérieure)
-        TensorBoardExporter.shutdown();
-        
         // Exporter des métriques sans initialisation préalable
-        // (devrait auto-initialiser en mémoire)
+        // (devrait initialiser automatiquement)
         boolean result = TensorBoardExporter.exportMetrics(sampleMetrics, "auto_init_test");
         assertTrue("L'exportation avec auto-initialisation devrait réussir", result);
     }
