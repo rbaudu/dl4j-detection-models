@@ -32,8 +32,15 @@ public class MFCCSoundTrainer extends SoundTrainer {
         // Paramètres spécifiques aux MFCC
         this.numMfcc = Integer.parseInt(config.getProperty("sound.model.mfcc.coefficients", "40"));
         this.mfccLength = Integer.parseInt(config.getProperty("sound.model.mfcc.length", "300"));
+        this.trainerType = SoundTrainerType.MFCC;
         
         logger.info("Initialisation de l'entraîneur MFCC avec {} coefficients et longueur {}", numMfcc, mfccLength);
+    }
+    
+    @Override
+    public void initializeModel() {
+        logger.info("Initialisation du modèle MFCC");
+        model = createModel();
     }
     
     @Override
