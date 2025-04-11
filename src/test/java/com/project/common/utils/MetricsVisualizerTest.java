@@ -48,7 +48,7 @@ public class MetricsVisualizerTest {
                 Math.min(basePrecision + improvement, 1.0),
                 Math.min(baseRecall + improvement, 1.0),
                 Math.min(baseF1 + improvement, 1.0),
-                150.0 + (epoch * 10) // Le temps d'entraînement augmente un peu à chaque époque
+                150L + (epoch * 10L) // Le temps d'entraînement augmente un peu à chaque époque
             );
             
             // Ajouter des métriques par classe
