@@ -131,6 +131,7 @@ public class MFCCSoundTrainer extends SoundTrainer {
      * Retourne le nombre de classes
      * @return Nombre de classes pour la classification
      */
+    @Override
     public int getNumClasses() {
         return numClasses;
     }
