@@ -34,30 +34,27 @@ public class MFCCSoundTrainerTest {
                 log.info("Chargement de la configuration de test");
                 config.load(new FileInputStream(testConfig));
             } else {
-                log.info("Configuration de test non trouvée, chargement de la configuration standard");
-                config.load(new FileInputStream("config/application.properties"));
+                log.info("Configuration de test non trouvée, utilisation d'une configuration en mémoire");
             }
             
             // S'assurer que les paramètres nécessaires pour les tests sont définis
-            ensureConfigProperty("sound.model.num.classes", "5");
-            ensureConfigProperty("sound.input.length", "16000");
-            ensureConfigProperty("sound.model.mfcc.coefficients", "40");
-            ensureConfigProperty("sound.model.mfcc.length", "300");
-            ensureConfigProperty("sound.model.spectrogram.height", "224");
-            ensureConfigProperty("sound.model.spectrogram.width", "224");
-            ensureConfigProperty("training.epochs", "1");
-            ensureConfigProperty("model.hidden.size", "512");
+            config.setProperty("sound.model.num.classes", "5");
+            config.setProperty("sound.input.length", "16000");
+            config.setProperty("sound.model.mfcc.coefficients", "40");
+            config.setProperty("sound.model.mfcc.length", "300");
+            config.setProperty("sound.model.spectrogram.height", "224");
+            config.setProperty("sound.model.spectrogram.width", "224");
+            config.setProperty("training.epochs", "1");
+            config.setProperty("model.hidden.size", "512");
+            
+            // Afficher les valeurs de configuration pour le débogage
+            log.info("Configuration utilisée pour les tests:");
+            log.info("sound.model.mfcc.coefficients = {}", config.getProperty("sound.model.mfcc.coefficients"));
+            log.info("sound.model.mfcc.length = {}", config.getProperty("sound.model.mfcc.length"));
+            log.info("model.hidden.size = {}", config.getProperty("model.hidden.size"));
             
         } catch (IOException e) {
-            log.warn("Configuration par défaut utilisée", e);
-        }
-    }
-    
-    // Helper pour s'assurer qu'une propriété existe
-    private void ensureConfigProperty(String key, String defaultValue) {
-        if (!config.containsKey(key)) {
-            log.info("Ajout de la propriété manquante: {} = {}", key, defaultValue);
-            config.setProperty(key, defaultValue);
+            log.warn("Erreur lors du chargement de la configuration, utilisation des valeurs par défaut", e);
         }
     }
     
@@ -84,8 +81,28 @@ public class MFCCSoundTrainerTest {
     
     @Test
     public void testMFCCSoundTrainerModelCreation() {
-        // Créer et initialiser un MFCCSoundTrainer
-        MFCCSoundTrainer trainer = new MFCCSoundTrainer(config);
+        // Créer un ensemble de propriétés explicite pour ce test
+        Properties testConfig = new Properties();
+        testConfig.setProperty("sound.model.num.classes", "5");
+        testConfig.setProperty("sound.model.mfcc.coefficients", "40");
+        testConfig.setProperty("sound.model.mfcc.length", "300");
+        testConfig.setProperty("model.hidden.size", "512");
+        testConfig.setProperty("training.learning.rate", "0.001");
+        testConfig.setProperty("training.seed", "42");
+        
+        // Afficher les valeurs pour le débogage
+        log.info("Configuration de test pour MFCCSoundTrainerModelCreation:");
+        log.info("sound.model.mfcc.coefficients = {}", testConfig.getProperty("sound.model.mfcc.coefficients"));
+        log.info("sound.model.mfcc.length = {}", testConfig.getProperty("sound.model.mfcc.length"));
+        
+        // Calculer la taille d'entrée attendue
+        int expectedNumMfcc = Integer.parseInt(testConfig.getProperty("sound.model.mfcc.coefficients"));
+        int expectedMfccLength = Integer.parseInt(testConfig.getProperty("sound.model.mfcc.length"));
+        int expectedInputSize = expectedNumMfcc * expectedMfccLength;
+        log.info("Taille d'entrée attendue: {}", expectedInputSize);
+        
+        // Créer et initialiser un MFCCSoundTrainer avec cette configuration spécifique
+        MFCCSoundTrainer trainer = new MFCCSoundTrainer(testConfig);
         
         // Initialiser le modèle
         trainer.initializeModel();
@@ -96,28 +113,25 @@ public class MFCCSoundTrainerTest {
         
         // Obtenir la taille d'entrée réelle du modèle
         int actualInputSize = model.getLayer(0).getParam("W").columns();
-        
-        // Calculer la taille d'entrée attendue
-        int expectedNumMfcc = Integer.parseInt(config.getProperty("sound.model.mfcc.coefficients", "40"));
-        int expectedMfccLength = Integer.parseInt(config.getProperty("sound.model.mfcc.length", "300"));
-        long expectedInputSize = expectedNumMfcc * expectedMfccLength;
-        
         log.info("Taille d'entrée réelle du modèle: {}", actualInputSize);
-        log.info("Taille d'entrée attendue: {}", expectedInputSize);
         
         // Vérifier que la taille d'entrée correspond aux attentes
         assertEquals("La taille d'entrée du modèle devrait correspondre aux paramètres", 
-                (int)expectedInputSize, actualInputSize);
+                expectedInputSize, actualInputSize);
     }
     
     @Test
     public void testSpectrogramSoundTrainerInitialization() {
         // Configurer pour l'approche spectrogramme
-        config.setProperty("sound.model.type", "SPECTROGRAM");
-        config.setProperty("sound.model.architecture", "VGG16");
+        Properties spectroConfig = new Properties();
+        spectroConfig.setProperty("sound.model.type", "SPECTROGRAM");
+        spectroConfig.setProperty("sound.model.architecture", "VGG16");
+        spectroConfig.setProperty("sound.model.num.classes", "5");
+        spectroConfig.setProperty("sound.model.spectrogram.height", "224");
+        spectroConfig.setProperty("sound.model.spectrogram.width", "224");
         
         // Tester la création d'un SpectrogramSoundTrainer
-        SpectrogramSoundTrainer trainer = new SpectrogramSoundTrainer(config);
+        SpectrogramSoundTrainer trainer = new SpectrogramSoundTrainer(spectroConfig);
         assertNotNull("Le SpectrogramSoundTrainer devrait être créé", trainer);
         
         // Vérifier que le type est correct en fonction de l'architecture
@@ -128,11 +142,17 @@ public class MFCCSoundTrainerTest {
     @Test
     public void testSpectrogramSoundTrainerModelCreation() {
         // Configurer pour l'approche spectrogramme
-        config.setProperty("sound.model.type", "SPECTROGRAM");
-        config.setProperty("sound.model.architecture", "STANDARD");
+        Properties spectroConfig = new Properties();
+        spectroConfig.setProperty("sound.model.type", "SPECTROGRAM");
+        spectroConfig.setProperty("sound.model.architecture", "STANDARD");
+        spectroConfig.setProperty("sound.model.num.classes", "5");
+        spectroConfig.setProperty("sound.model.spectrogram.height", "224");
+        spectroConfig.setProperty("sound.model.spectrogram.width", "224");
+        spectroConfig.setProperty("training.learning.rate", "0.001");
+        spectroConfig.setProperty("training.seed", "42");
         
         // Créer et initialiser un SpectrogramSoundTrainer
-        SpectrogramSoundTrainer trainer = new SpectrogramSoundTrainer(config);
+        SpectrogramSoundTrainer trainer = new SpectrogramSoundTrainer(spectroConfig);
         
         // Initialiser le modèle
         trainer.initializeModel();
@@ -149,11 +169,17 @@ public class MFCCSoundTrainerTest {
     @Test
     public void testSpectrogramVGG16ModelCreation() {
         // Configurer pour l'approche spectrogramme avec VGG16
-        config.setProperty("sound.model.type", "SPECTROGRAM");
-        config.setProperty("sound.model.architecture", "VGG16");
+        Properties vggConfig = new Properties();
+        vggConfig.setProperty("sound.model.type", "SPECTROGRAM");
+        vggConfig.setProperty("sound.model.architecture", "VGG16");
+        vggConfig.setProperty("sound.model.num.classes", "5");
+        vggConfig.setProperty("sound.model.spectrogram.height", "224");
+        vggConfig.setProperty("sound.model.spectrogram.width", "224");
+        vggConfig.setProperty("training.learning.rate", "0.001");
+        vggConfig.setProperty("training.seed", "42");
         
         // Créer et initialiser un SpectrogramSoundTrainer avec VGG16
-        SpectrogramSoundTrainer trainer = new SpectrogramSoundTrainer(config);
+        SpectrogramSoundTrainer trainer = new SpectrogramSoundTrainer(vggConfig);
         
         // Initialiser le modèle
         trainer.initializeModel();
