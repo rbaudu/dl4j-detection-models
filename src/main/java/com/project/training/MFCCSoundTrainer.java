@@ -1,11 +1,7 @@
 package com.project.training;
 
-import com.project.common.utils.LoggingUtils;
-import org.deeplearning4j.nn.api.OptimizationAlgorithm;
-import org.deeplearning4j.nn.conf.BackpropType;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
-import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.DenseLayer;
 import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
@@ -18,12 +14,14 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 
+/**
+ * Implémentation de l'entraîneur pour les sons basés sur MFCC
+ */
 public class MFCCSoundTrainer extends SoundTrainer {
     private static final Logger logger = LoggerFactory.getLogger(MFCCSoundTrainer.class);
     
-    private int inputLength;
     private int numMfcc;
-    private int inputSize;
+    private int mfccLength;
     
     /**
      * Constructeur avec configuration
@@ -31,84 +29,52 @@ public class MFCCSoundTrainer extends SoundTrainer {
     public MFCCSoundTrainer(Properties config) {
         super(config);
         
-        // Charger les paramètres spécifiques aux MFCC
-        inputLength = Integer.parseInt(config.getProperty("sound.input.length", "16000"));
-        numMfcc = Integer.parseInt(config.getProperty("sound.num.mfcc", "40"));
+        // Paramètres spécifiques aux MFCC
+        this.numMfcc = Integer.parseInt(config.getProperty("sound.model.mfcc.coefficients", "40"));
+        this.mfccLength = Integer.parseInt(config.getProperty("sound.model.mfcc.length", "300"));
         
-        // Calculer la taille d'entrée pour le réseau neuronal
-        // Pour une extraction MFCC, la taille d'entrée est généralement différente
-        // de l'inputLength original; nous utilisons une taille fixe pour le réseau
-        inputSize = 512; // Taille fixe
-        
-        logger.info("Configuration MFCC chargée: inputLength={}, numMfcc={}", inputLength, numMfcc);
+        logger.info("Initialisation de l'entraîneur MFCC avec {} coefficients et longueur {}", numMfcc, mfccLength);
     }
     
     @Override
     protected MultiLayerNetwork createModel() {
-        logger.info("Initialisation d'un modèle MFCC pour la classification de sons");
-        logger.info("Nombre d'entrées: {}, Nombre de classes: {}", inputSize, numClasses);
+        logger.info("Création du modèle MFCC");
         
-        // Configuration du réseau pour la classification audio MFCC
-        MultiLayerConfiguration config = new NeuralNetConfiguration.Builder()
-            .seed(seed)
-            .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-            .updater(new Adam(learningRate))
-            .weightInit(WeightInit.XAVIER)
-            .l2(1e-4)
-            .list()
-            .layer(0, new DenseLayer.Builder()
-                .nIn(inputSize)
-                .nOut(hiddenLayerSize)
-                .activation(Activation.RELU)
-                .dropOut(0.3)
-                .build())
-            .layer(1, new DenseLayer.Builder()
-                .nIn(hiddenLayerSize)
-                .nOut(hiddenLayerSize)
-                .activation(Activation.RELU)
-                .dropOut(0.3)
-                .build())
-            .layer(2, new DenseLayer.Builder()
-                .nIn(hiddenLayerSize)
-                .nOut(hiddenLayerSize / 2)
-                .activation(Activation.RELU)
-                .dropOut(0.3)
-                .build())
-            .layer(3, new DenseLayer.Builder()
-                .nIn(hiddenLayerSize / 2)
-                .nOut(hiddenLayerSize / 4)
-                .activation(Activation.RELU)
-                .dropOut(0.3)
-                .build())
-            .layer(4, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                .nIn(hiddenLayerSize / 4)
-                .nOut(numClasses)
-                .activation(Activation.SOFTMAX)
-                .build())
-            .setInputType(InputType.feedForward(inputSize))
-            .backpropType(BackpropType.Standard)
-            .build();
+        // Calculer la taille d'entrée
+        int inputSize = numMfcc * mfccLength;
         
-        MultiLayerNetwork model = new MultiLayerNetwork(config);
+        // Configurer le réseau
+        MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                .seed(seed)
+                .weightInit(WeightInit.XAVIER)
+                .updater(new Adam(learningRate))
+                .l2(1e-5)
+                .list()
+                .layer(0, new DenseLayer.Builder()
+                        .nIn(inputSize)
+                        .nOut(hiddenLayerSize)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(1, new DenseLayer.Builder()
+                        .nOut(hiddenLayerSize / 2)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(2, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+                        .nOut(numClasses)
+                        .activation(Activation.SOFTMAX)
+                        .build())
+                .build();
+        
+        // Créer et initialiser le réseau
+        MultiLayerNetwork model = new MultiLayerNetwork(conf);
         model.init();
-        
-        // Afficher les informations sur le modèle
-        LoggingUtils.logModelInfo(model, "son", "MFCC");
         
         return model;
     }
     
     @Override
     protected void preprocessData() {
-        // Implémentation de prétraitement MFCC
-        logger.info("Prétraitement des données audio avec extraction MFCC");
-        // TODO: Implémenter l'extraction de caractéristiques MFCC
-    }
-    
-    /**
-     * Getter pour la taille d'entrée
-     */
-    public int getInputSize() {
-        return inputSize;
+        logger.info("Prétraitement des données pour l'entraînement MFCC");
+        // TODO: Implémenter le prétraitement des données audio en MFCC
     }
 }
