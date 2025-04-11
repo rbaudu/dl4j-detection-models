@@ -1,7 +1,7 @@
 package com.project.common.utils;
 
 /**
- * Classe pour stocker les métriques spécifiques à une classe.
+ * Classe représentant les métriques d'évaluation pour une classe spécifique
  */
 public class ClassMetrics {
     private int classIndex;
@@ -13,9 +13,23 @@ public class ClassMetrics {
     private int falsePositives;
     private int falseNegatives;
     
+    /**
+     * Constructeur par défaut
+     */
     public ClassMetrics() {
     }
     
+    /**
+     * Constructeur avec index de classe et nom
+     */
+    public ClassMetrics(int classIndex, String className) {
+        this.classIndex = classIndex;
+        this.className = className;
+    }
+    
+    /**
+     * Constructeur complet
+     */
     public ClassMetrics(int classIndex, String className, double precision, double recall, double f1Score) {
         this.classIndex = classIndex;
         this.className = className;
@@ -24,13 +38,22 @@ public class ClassMetrics {
         this.f1Score = f1Score;
     }
     
-    public ClassMetrics(int classIndex, String className, double precision, double recall, double f1Score, 
+    /**
+     * Constructeur complet avec statistiques détaillées
+     */
+    public ClassMetrics(int classIndex, String className, double precision, double recall, double f1Score,
                         int truePositives, int falsePositives, int falseNegatives) {
-        this(classIndex, className, precision, recall, f1Score);
+        this.classIndex = classIndex;
+        this.className = className;
+        this.precision = precision;
+        this.recall = recall;
+        this.f1Score = f1Score;
         this.truePositives = truePositives;
         this.falsePositives = falsePositives;
         this.falseNegatives = falseNegatives;
     }
+    
+    // Getters et setters
     
     public int getClassIndex() {
         return classIndex;
@@ -98,7 +121,7 @@ public class ClassMetrics {
     
     @Override
     public String toString() {
-        return String.format("Classe %d (%s) - Precision: %.4f, Recall: %.4f, F1: %.4f, TP: %d, FP: %d, FN: %d",
-                            classIndex, className, precision, recall, f1Score, truePositives, falsePositives, falseNegatives);
+        return String.format("Classe %d [%s] - Precision: %.4f, Recall: %.4f, F1: %.4f, TP: %d, FP: %d, FN: %d",
+                classIndex, className, precision, recall, f1Score, truePositives, falsePositives, falseNegatives);
     }
 }
