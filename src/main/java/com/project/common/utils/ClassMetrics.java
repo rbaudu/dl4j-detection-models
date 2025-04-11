@@ -119,9 +119,32 @@ public class ClassMetrics {
         this.falseNegatives = falseNegatives;
     }
     
+    /**
+     * Formate les métriques en pourcentages pour l'affichage
+     */
+    private String formatPercent(double value) {
+        return String.format("%.2f%%", value * 100);
+    }
+    
     @Override
     public String toString() {
-        return String.format("Classe %d [%s] - Precision: %.4f, Recall: %.4f, F1: %.4f, TP: %d, FP: %d, FN: %d",
-                classIndex, className, precision, recall, f1Score, truePositives, falsePositives, falseNegatives);
+        StringBuilder sb = new StringBuilder();
+        if (className != null && !className.isEmpty()) {
+            sb.append("Class ").append(classIndex).append(" [").append(className).append("] - ");
+        } else {
+            sb.append("Class ").append(classIndex).append(" - ");
+        }
+        
+        sb.append("Precision: ").append(formatPercent(precision))
+          .append(", Recall: ").append(formatPercent(recall))
+          .append(", F1: ").append(formatPercent(f1Score));
+        
+        if (truePositives > 0 || falsePositives > 0 || falseNegatives > 0) {
+            sb.append(", TP: ").append(truePositives)
+              .append(", FP: ").append(falsePositives)
+              .append(", FN: ").append(falseNegatives);
+        }
+        
+        return sb.toString();
     }
 }
