@@ -162,6 +162,7 @@ public class ResNetActivityModel {
         }
         
         if (resNetNetwork != null) {
+            // Dans beta7, le paramètre s'appelle saveUpdater au lieu de includeUpdater
             org.deeplearning4j.util.ModelSerializer.writeModel(resNetNetwork, modelFile, true);
             log.info("Modèle ResNet sauvegardé avec succès");
         } else {
@@ -178,11 +179,12 @@ public class ResNetActivityModel {
     public void exportModel(String exportPath) throws IOException {
         log.info("Exportation du modèle ResNet de détection d'activité vers {}", exportPath);
         
-        boolean includeUpdater = Boolean.parseBoolean(config.getProperty("export.model.include.updater", "false"));
+        boolean saveUpdater = Boolean.parseBoolean(config.getProperty("export.model.include.updater", "false"));
         
         if (resNetNetwork != null) {
             File modelFile = new File(exportPath);
-            org.deeplearning4j.util.ModelSerializer.writeModel(resNetNetwork, modelFile, includeUpdater);
+            // Dans beta7, le paramètre s'appelle saveUpdater au lieu de includeUpdater
+            org.deeplearning4j.util.ModelSerializer.writeModel(resNetNetwork, modelFile, saveUpdater);
             log.info("Modèle ResNet exporté avec succès");
         } else {
             throw new IllegalStateException("Aucun modèle ResNet à exporter");
