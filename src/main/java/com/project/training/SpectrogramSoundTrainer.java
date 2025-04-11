@@ -1,21 +1,14 @@
 package com.project.training;
 
-import com.project.common.utils.LoggingUtils;
-import org.deeplearning4j.nn.api.OptimizationAlgorithm;
-import org.deeplearning4j.nn.conf.ComputationGraphConfiguration;
-import org.deeplearning4j.nn.conf.ConvolutionMode;
-import org.deeplearning4j.nn.conf.GradientNormalization;
-import org.deeplearning4j.nn.conf.inputs.InputType;
-import org.deeplearning4j.nn.conf.layers.*;
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
-import org.deeplearning4j.nn.conf.WorkspaceMode;
-import org.deeplearning4j.nn.graph.ComputationGraph;
-import org.deeplearning4j.nn.transferlearning.FineTuneConfiguration;
-import org.deeplearning4j.nn.transferlearning.TransferLearning;
+import org.deeplearning4j.nn.conf.inputs.InputType;
+import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
+import org.deeplearning4j.nn.conf.layers.DenseLayer;
+import org.deeplearning4j.nn.conf.layers.OutputLayer;
+import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
-import org.deeplearning4j.zoo.PretrainedType;
-import org.deeplearning4j.zoo.ZooModel;
-import org.deeplearning4j.zoo.model.VGG16;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
@@ -23,157 +16,231 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
-import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 
+/**
+ * Implémentation de l'entraîneur pour les sons basés sur spectrogrammes
+ */
 public class SpectrogramSoundTrainer extends SoundTrainer {
     private static final Logger logger = LoggerFactory.getLogger(SpectrogramSoundTrainer.class);
     
-    private static final int DEFAULT_WIDTH = 224;
-    private static final int DEFAULT_HEIGHT = 224;
-    private static final int DEFAULT_CHANNELS = 1;
-    
-    private int width;
-    private int height;
-    private int channels;
+    private int spectrogramHeight;
+    private int spectrogramWidth;
     private String architecture;
     
     /**
      * Constructeur avec configuration
      */
     public SpectrogramSoundTrainer(Properties config) {
-        this(config, "CNN");
+        super(config);
+        
+        // Paramètres spécifiques aux spectrogrammes
+        this.spectrogramHeight = Integer.parseInt(config.getProperty("sound.model.spectrogram.height", "224"));
+        this.spectrogramWidth = Integer.parseInt(config.getProperty("sound.model.spectrogram.width", "224"));
+        this.architecture = config.getProperty("sound.model.architecture", "STANDARD");
+        
+        logger.info("Initialisation de l'entraîneur Spectrogram avec architecture {} et dimensions {}x{}", 
+                   architecture, spectrogramHeight, spectrogramWidth);
     }
     
     /**
-     * Constructeur avec configuration et architecture spécifique
+     * Constructeur avec architecture spécifiée
      */
     public SpectrogramSoundTrainer(Properties config, String architecture) {
-        super(config);
-        
-        this.width = Integer.parseInt(config.getProperty("spectrogram.width", String.valueOf(DEFAULT_WIDTH)));
-        this.height = Integer.parseInt(config.getProperty("spectrogram.height", String.valueOf(DEFAULT_HEIGHT)));
-        this.channels = Integer.parseInt(config.getProperty("spectrogram.channels", String.valueOf(DEFAULT_CHANNELS)));
+        this(config);
         this.architecture = architecture;
+        logger.info("Architecture forcée à: {}", architecture);
     }
     
     @Override
     protected MultiLayerNetwork createModel() {
-        logger.info("Initialisation d'un modèle CNN pour la classification de spectrogrammes");
-        logger.info("Dimensions du spectrogramme: {}x{}x{}, Nombre de classes: {}", width, height, channels, numClasses);
-        logger.info("Architecture du modèle: {}", architecture);
+        logger.info("Création du modèle Spectrogram avec architecture {}", architecture);
         
-        // Selon l'architecture choisie, créer un modèle différent
-        if ("VGG16".equals(architecture)) {
-            return createVGG16TransferLearningModel();
+        if ("VGG16".equalsIgnoreCase(architecture)) {
+            return createVGG16Model();
+        } else if ("ResNet".equalsIgnoreCase(architecture)) {
+            return createResNetModel();
         } else {
-            return createSimpleCNNModel();
+            return createStandardModel();
         }
     }
     
     /**
-     * Crée un modèle CNN simple
+     * Crée un modèle CNN standard pour les spectrogrammes
      */
-    private MultiLayerNetwork createSimpleCNNModel() {
-        // Définir la configuration du réseau
-        NeuralNetConfiguration.Builder builder = new NeuralNetConfiguration.Builder()
-            .seed(seed)
-            .updater(new Adam(learningRate))
-            .weightInit(WeightInit.XAVIER)
-            .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-            .l2(0.0005)
-            .activation(Activation.RELU);
+    private MultiLayerNetwork createStandardModel() {
+        int channels = 1; // spectrogrammes en niveaux de gris
         
-        // Construire le réseau CNN pour les spectrogrammes
-        NeuralNetConfiguration.ListBuilder listBuilder = builder.list()
-            .layer(0, new ConvolutionLayer.Builder(5, 5)
-                .nIn(channels)
-                .nOut(32)
-                .stride(1, 1)
-                .padding(2, 2)
-                .build())
-            .layer(1, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                .kernelSize(2, 2)
-                .stride(2, 2)
-                .build())
-            .layer(2, new ConvolutionLayer.Builder(5, 5)
-                .nOut(64)
-                .stride(1, 1)
-                .padding(2, 2)
-                .build())
-            .layer(3, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                .kernelSize(2, 2)
-                .stride(2, 2)
-                .build())
-            .layer(4, new DenseLayer.Builder()
-                .nOut(512)
-                .build())
-            .layer(5, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                .nOut(numClasses)
-                .activation(Activation.SOFTMAX)
-                .build())
-            .setInputType(InputType.convolutional(height, width, channels));
+        MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                .seed(seed)
+                .weightInit(WeightInit.XAVIER)
+                .updater(new Adam(learningRate))
+                .l2(1e-5)
+                .list()
+                .layer(0, new ConvolutionLayer.Builder(3, 3)
+                        .nIn(channels)
+                        .nOut(32)
+                        .stride(1, 1)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(1, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(2, 2)
+                        .stride(2, 2)
+                        .build())
+                .layer(2, new ConvolutionLayer.Builder(3, 3)
+                        .nOut(64)
+                        .stride(1, 1)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(3, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(2, 2)
+                        .stride(2, 2)
+                        .build())
+                .layer(4, new DenseLayer.Builder()
+                        .nOut(hiddenLayerSize)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(5, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+                        .nOut(numClasses)
+                        .activation(Activation.SOFTMAX)
+                        .build())
+                .setInputType(InputType.convolutional(spectrogramHeight, spectrogramWidth, channels))
+                .build();
         
-        // Créer et initialiser le modèle
-        MultiLayerNetwork model = new MultiLayerNetwork(listBuilder.build());
+        // Créer et initialiser le réseau
+        MultiLayerNetwork model = new MultiLayerNetwork(conf);
         model.init();
-        
-        // Afficher les informations sur le modèle
-        LoggingUtils.logModelInfo(model, "son (spectrogramme)", "CNN");
         
         return model;
     }
     
     /**
-     * Crée un modèle basé sur VGG16 avec transfert learning
+     * Crée un modèle VGG16 simplifié
      */
-    private MultiLayerNetwork createVGG16TransferLearningModel() {
-        try {
-            // Charger le modèle VGG16 pré-entraîné
-            ZooModel zooModel = VGG16.builder().build();
-            ComputationGraph vgg16 = (ComputationGraph) zooModel.initPretrained(PretrainedType.IMAGENET);
-            
-            // Configuration pour le fine-tuning
-            FineTuneConfiguration fineTuneConfig = new FineTuneConfiguration.Builder()
-                .updater(new Adam(learningRate))
+    private MultiLayerNetwork createVGG16Model() {
+        int channels = 1; // spectrogrammes en niveaux de gris
+        
+        // Version simplifiée de VGG16 (pas tous les blocs)
+        MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                 .seed(seed)
+                .weightInit(WeightInit.XAVIER)
+                .updater(new Adam(learningRate))
+                .l2(1e-5)
+                .list()
+                // Bloc 1
+                .layer(0, new ConvolutionLayer.Builder(3, 3)
+                        .nIn(channels)
+                        .nOut(64)
+                        .stride(1, 1)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(1, new ConvolutionLayer.Builder(3, 3)
+                        .nOut(64)
+                        .stride(1, 1)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(2, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(2, 2)
+                        .stride(2, 2)
+                        .build())
+                // Bloc 2
+                .layer(3, new ConvolutionLayer.Builder(3, 3)
+                        .nOut(128)
+                        .stride(1, 1)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(4, new ConvolutionLayer.Builder(3, 3)
+                        .nOut(128)
+                        .stride(1, 1)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(5, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(2, 2)
+                        .stride(2, 2)
+                        .build())
+                // Couches fully connected
+                .layer(6, new DenseLayer.Builder()
+                        .nOut(4096)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(7, new DenseLayer.Builder()
+                        .nOut(4096)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(8, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+                        .nOut(numClasses)
+                        .activation(Activation.SOFTMAX)
+                        .build())
+                .setInputType(InputType.convolutional(spectrogramHeight, spectrogramWidth, channels))
                 .build();
-            
-            // Transférer les poids et adapter pour notre tâche de classification
-            ComputationGraph modelTransfer = new TransferLearning.GraphBuilder(vgg16)
-                .fineTuneConfiguration(fineTuneConfig)
-                .setFeatureExtractor("fc2") // Figer les couches jusqu'à fc2
-                .removeVertexKeepConnections("predictions") // Supprimer la couche de sortie originale
-                .addLayer("predictions", 
-                        new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                            .nIn(4096)
-                            .nOut(numClasses)
-                            .weightInit(WeightInit.XAVIER)
-                            .activation(Activation.SOFTMAX)
-                            .build(), 
-                        "fc2")
+        
+        // Créer et initialiser le réseau
+        MultiLayerNetwork model = new MultiLayerNetwork(conf);
+        model.init();
+        
+        return model;
+    }
+    
+    /**
+     * Crée un modèle ResNet simplifié
+     */
+    private MultiLayerNetwork createResNetModel() {
+        int channels = 1; // spectrogrammes en niveaux de gris
+        
+        // Version simplifiée de ResNet (juste quelques couches, pas de blocs résiduels)
+        MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                .seed(seed)
+                .weightInit(WeightInit.XAVIER)
+                .updater(new Adam(learningRate))
+                .l2(1e-5)
+                .list()
+                // Couche d'entrée
+                .layer(0, new ConvolutionLayer.Builder(7, 7)
+                        .nIn(channels)
+                        .nOut(64)
+                        .stride(2, 2)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(1, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(3, 3)
+                        .stride(2, 2)
+                        .build())
+                // Quelques couches conv
+                .layer(2, new ConvolutionLayer.Builder(3, 3)
+                        .nOut(128)
+                        .stride(1, 1)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(3, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(2, 2)
+                        .stride(2, 2)
+                        .build())
+                .layer(4, new ConvolutionLayer.Builder(3, 3)
+                        .nOut(256)
+                        .stride(1, 1)
+                        .activation(Activation.RELU)
+                        .build())
+                .layer(5, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.AVGPOOL)
+                        .kernelSize(7, 7)
+                        .stride(1, 1)
+                        .build())
+                // Couche fully connected
+                .layer(6, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+                        .nOut(numClasses)
+                        .activation(Activation.SOFTMAX)
+                        .build())
+                .setInputType(InputType.convolutional(spectrogramHeight, spectrogramWidth, channels))
                 .build();
-            
-            // Convertir le ComputationGraph en MultiLayerNetwork pour compatibilité
-            // Note: Cette conversion peut perdre des informations si le modèle est complexe
-            // Pour simplifier, nous allons créer un modèle CNN simple qui correspond à l'architecture
-            MultiLayerNetwork model = createSimpleCNNModel();
-            
-            // Afficher les informations sur le modèle
-            LoggingUtils.logModelInfo(model, "son (spectrogramme)", "VGG16");
-            
-            return model;
-            
-        } catch (Exception e) {
-            logger.error("Erreur lors de la création du modèle VGG16: {}", e.getMessage());
-            logger.warn("Utilisation du modèle CNN simple comme repli");
-            return createSimpleCNNModel();
-        }
+        
+        // Créer et initialiser le réseau
+        MultiLayerNetwork model = new MultiLayerNetwork(conf);
+        model.init();
+        
+        return model;
     }
     
     @Override
     protected void preprocessData() {
-        // Implémentation du prétraitement des spectrogrammes
-        logger.info("Prétraitement des données audio en spectrogrammes");
-        // TODO: Implémenter la génération de spectrogrammes
+        logger.info("Prétraitement des données pour l'entraînement sur spectrogrammes");
+        // TODO: Implémenter le prétraitement des données audio en spectrogrammes
     }
 }
