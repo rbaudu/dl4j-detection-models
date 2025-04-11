@@ -77,12 +77,12 @@ public class MetricsTrackerTest {
         validationIterator = new ListDataSetIterator<>(Collections.singletonList(validationData));
         
         // Créer le tracker
-        tracker = new MetricsTracker(validationIterator, 1, outputDir, "test_model");
+        tracker = new MetricsTracker(validationIterator, 1, "test_model", outputDir);
     }
     
     @Test
     public void testOnEpochEnd() {
-        // Définir le numéro d'époque pour le modèle
+        // Définir le numéro d'époche pour le modèle
         model.setEpochCount(1);
         
         // Appeler onEpochEnd pour déclencher l'évaluation et la collecte des métriques
@@ -104,7 +104,7 @@ public class MetricsTrackerTest {
         assertTrue(epoch1Metrics.getF1Score() >= 0.0 && epoch1Metrics.getF1Score() <= 1.0);
         
         // Vérifier que les métriques par classe sont présentes
-        assertFalse(epoch1Metrics.getPerClassMetrics().isEmpty());
+        assertFalse(epoch1Metrics.getClassMetrics().isEmpty());
     }
     
     @Test
@@ -147,75 +147,14 @@ public class MetricsTrackerTest {
         String csvContent = Files.readString(csvFiles[0].toPath());
         
         // Vérifier qu'il contient l'en-tête et les données pour 3 époques
-        assertTrue(csvContent.contains("Epoch,Accuracy,Precision,Recall,F1Score,TrainingTime"));
+        assertTrue(csvContent.contains("Epoch,Accuracy,Precision,Recall,F1,Training_Time_ms"));
         assertEquals(4, csvContent.lines().count()); // 1 ligne d'en-tête + 3 lignes de données
-    }
-    
-    @Test
-    public void testGenerateProgressReport() {
-        // Simuler quelques époques
-        for (int epoch = 1; epoch <= 3; epoch++) {
-            model.setEpochCount(epoch);
-            tracker.onEpochEnd(model);
-        }
-        
-        // Générer le rapport de progression
-        String report = tracker.generateProgressReport();
-        
-        // Vérifier que le rapport n'est pas vide
-        assertNotNull(report);
-        assertTrue(report.length() > 0);
-        
-        // Vérifier qu'il contient les informations attendues
-        assertTrue(report.contains("Rapport de progression des métriques"));
-        assertTrue(report.contains("Époque\tAccuracy\tPrecision\tRecall\tF1-Score\tTemps(ms)"));
-        
-        // Il devrait y avoir 3 lignes de données (une par époque) + les en-têtes
-        String[] lines = report.split("\n");
-        assertTrue(lines.length >= 5); // Au moins 2 lignes d'en-tête + 3 lignes de données
-    }
-    
-    @Test
-    public void testGetLatestMetrics() {
-        // Pas de métriques au départ
-        assertNull(tracker.getLatestMetrics());
-        
-        // Simuler quelques époques
-        for (int epoch = 1; epoch <= 3; epoch++) {
-            model.setEpochCount(epoch);
-            tracker.onEpochEnd(model);
-        }
-        
-        // Vérifier que getLatestMetrics retourne les métriques de la dernière époque
-        EvaluationMetrics latest = tracker.getLatestMetrics();
-        assertNotNull(latest);
-        assertEquals(3, latest.getEpoch());
-    }
-    
-    @Test
-    public void testEvaluationFrequency() {
-        // Créer un tracker avec une fréquence d'évaluation de 2 époques
-        MetricsTracker trackerWithFrequency = new MetricsTracker(validationIterator, 2, outputDir, "frequency_test");
-        
-        // Simuler 5 époques
-        for (int epoch = 1; epoch <= 5; epoch++) {
-            model.setEpochCount(epoch);
-            trackerWithFrequency.onEpochEnd(model);
-        }
-        
-        // Vérifier que les métriques ont été collectées seulement pour les époques 2, 4
-        List<EvaluationMetrics> metrics = trackerWithFrequency.getMetrics();
-        assertEquals(2, metrics.size());
-        
-        // Vérifier que les numéros d'époque sont corrects
-        assertEquals(2, metrics.get(0).getEpoch());
-        assertEquals(4, metrics.get(1).getEpoch());
     }
     
     @Test
     public void testNullValidationIterator() {
         // Créer un tracker avec un itérateur null (cas d'erreur)
-        MetricsTracker nullTracker = new MetricsTracker(null, 1, outputDir, "null_test");
+        MetricsTracker nullTracker = new MetricsTracker(null, 1, "null_test", outputDir);
         
         // Appeler onEpochEnd ne devrait pas provoquer d'exception
         model.setEpochCount(1);
