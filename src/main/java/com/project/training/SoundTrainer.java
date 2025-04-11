@@ -61,6 +61,8 @@ public abstract class SoundTrainer {
         
         // Utiliser un générateur de nombres aléatoires fiable
         Random rng = new Random(seed);
+        
+        logger.info("Initialisation de SoundTrainer avec {} classes", numClasses);
     }
     
     /**
@@ -163,6 +165,13 @@ public abstract class SoundTrainer {
      */
     public void setTrainerType(SoundTrainerType trainerType) {
         this.trainerType = trainerType;
+    }
+    
+    /**
+     * Retourne le nombre de classes pour la classification
+     */
+    public int getNumClasses() {
+        return numClasses;
     }
     
     /**
