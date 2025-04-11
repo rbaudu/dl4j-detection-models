@@ -18,7 +18,8 @@ public abstract class SoundTrainer {
     public enum SoundTrainerType {
         MFCC,
         SPECTROGRAM,
-        SPECTROGRAM_VGG16
+        SPECTROGRAM_VGG16,
+        SPECTROGRAM_RESNET
     }
     
     protected Properties config;
@@ -55,6 +56,14 @@ public abstract class SoundTrainer {
     }
     
     /**
+     * Constructeur avec type spécifié
+     */
+    public SoundTrainer(SoundTrainerType type, Properties config) {
+        this(config);
+        logger.info("Création d'un entraîneur de sons de type: {}", type);
+    }
+    
+    /**
      * Crée un entraîneur de sons selon le type spécifié
      */
     public static SoundTrainer createTrainer(String type, Properties config) {
@@ -66,6 +75,8 @@ public abstract class SoundTrainer {
             return new SpectrogramSoundTrainer(config);
         } else if ("SPECTROGRAM_VGG16".equals(type)) {
             return new SpectrogramSoundTrainer(config, "VGG16");
+        } else if ("SPECTROGRAM_RESNET".equals(type)) {
+            return new SpectrogramSoundTrainer(config, "ResNet");
         } else {
             logger.warn("Type d'entraîneur inconnu: {}, utilisation de MFCC par défaut", type);
             return new MFCCSoundTrainer(config);
