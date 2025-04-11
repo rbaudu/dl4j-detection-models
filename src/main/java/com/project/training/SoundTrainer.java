@@ -62,7 +62,8 @@ public abstract class SoundTrainer {
         // Utiliser un générateur de nombres aléatoires fiable
         Random rng = new Random(seed);
         
-        logger.info("Initialisation de SoundTrainer avec {} classes", numClasses);
+        logger.info("Initialisation de SoundTrainer avec {} classes et couche cachée de taille {}", 
+                   numClasses, hiddenLayerSize);
     }
     
     /**
@@ -144,6 +145,7 @@ public abstract class SoundTrainer {
         logger.info("=== Paramètres d'entraînement du modèle de son ===");
         logger.info("Type de modèle: {}", modelType);
         logger.info("Nombre de classes: {}", numClasses);
+        logger.info("Taille de la couche cachée: {}", hiddenLayerSize);
         logger.info("Taille du lot: {}", batchSize);
         logger.info("Nombre d'époques: {}", numEpochs);
         logger.info("Taux d'apprentissage: {}", learningRate);
@@ -172,6 +174,13 @@ public abstract class SoundTrainer {
      */
     public int getNumClasses() {
         return numClasses;
+    }
+    
+    /**
+     * Retourne la taille de la couche cachée
+     */
+    public int getHiddenLayerSize() {
+        return hiddenLayerSize;
     }
     
     /**
