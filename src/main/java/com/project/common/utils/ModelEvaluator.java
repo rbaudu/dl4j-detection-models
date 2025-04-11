@@ -104,8 +104,9 @@ public class ModelEvaluator {
         
         // Ajouter les métriques par classe (si disponibles)
         try {
-            int numClasses = eval.numClasses();
-            for (int i = 0; i < numClasses; i++) {
+            // Utiliser getClasses() qui est une méthode publique
+            int classCount = eval.getClasses().size();
+            for (int i = 0; i < classCount; i++) {
                 String className = "Classe-" + i;
                 double classPrecision = eval.precision(i);
                 double classRecall = eval.recall(i);
@@ -115,9 +116,14 @@ public class ModelEvaluator {
                 
                 // Sécurisation de l'accès aux TP/FP/FN selon l'API disponible
                 try {
-                    classMetrics.setTruePositives((int)eval.truePositives().getDouble(i));
-                    classMetrics.setFalsePositives((int)eval.falsePositives().getDouble(i));
-                    classMetrics.setFalseNegatives((int)eval.falseNegatives().getDouble(i));
+                    // Utiliser les méthodes disponibles dans l'API DL4J 1.0.0-beta7
+                    Map<Integer, Integer> tpMap = eval.truePositives();
+                    Map<Integer, Integer> fpMap = eval.falsePositives();
+                    Map<Integer, Integer> fnMap = eval.falseNegatives();
+                    
+                    classMetrics.setTruePositives(tpMap.getOrDefault(i, 0));
+                    classMetrics.setFalsePositives(fpMap.getOrDefault(i, 0));
+                    classMetrics.setFalseNegatives(fnMap.getOrDefault(i, 0));
                 } catch (Exception e) {
                     logger.warn("Impossible d'accéder aux TP/FP/FN pour la classe {}: {}", i, e.getMessage());
                 }
