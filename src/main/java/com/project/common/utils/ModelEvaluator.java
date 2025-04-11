@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class ModelEvaluator {
@@ -105,10 +104,9 @@ public class ModelEvaluator {
         
         // Ajouter les métriques par classe (si disponibles)
         try {
-            // Utiliser getLabels() au lieu de getClasses()
-            List<String> labels = eval.getLabels();
-            for (int i = 0; i < labels.size(); i++) {
-                String className = labels.get(i);
+            int numClasses = eval.numClasses();
+            for (int i = 0; i < numClasses; i++) {
+                String className = "Classe-" + i;
                 double classPrecision = eval.precision(i);
                 double classRecall = eval.recall(i);
                 double classF1 = eval.f1(i);
@@ -117,9 +115,9 @@ public class ModelEvaluator {
                 
                 // Sécurisation de l'accès aux TP/FP/FN selon l'API disponible
                 try {
-                    classMetrics.setTruePositives(0);
-                    classMetrics.setFalsePositives(0);
-                    classMetrics.setFalseNegatives(0);
+                    classMetrics.setTruePositives((int)eval.truePositives().getDouble(i));
+                    classMetrics.setFalsePositives((int)eval.falsePositives().getDouble(i));
+                    classMetrics.setFalseNegatives((int)eval.falseNegatives().getDouble(i));
                 } catch (Exception e) {
                     logger.warn("Impossible d'accéder aux TP/FP/FN pour la classe {}: {}", i, e.getMessage());
                 }
