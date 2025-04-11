@@ -117,13 +117,6 @@ public class EvaluationMetrics {
         this.classMetrics.put(classIndex, metrics);
     }
     
-    /**
-     * Formate les métriques en pourcentages pour l'affichage
-     */
-    private String formatPercent(double value) {
-        return String.format("%.2f%%", value * 100);
-    }
-    
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -131,10 +124,11 @@ public class EvaluationMetrics {
             sb.append("Epoch ").append(epoch).append(" - ");
         }
         
-        sb.append("Accuracy: ").append(formatPercent(accuracy))
-          .append(", Precision: ").append(formatPercent(precision))
-          .append(", Recall: ").append(formatPercent(recall))
-          .append(", F1: ").append(formatPercent(f1Score));
+        // Format avec les valeurs décimales exactes
+        sb.append("Accuracy: ").append(accuracy)
+          .append(", Precision: ").append(precision)
+          .append(", Recall: ").append(recall)
+          .append(", F1: ").append(f1Score);
         
         if (timeInMs > 0) {
             sb.append(", Time: ").append(timeInMs).append(" ms");
