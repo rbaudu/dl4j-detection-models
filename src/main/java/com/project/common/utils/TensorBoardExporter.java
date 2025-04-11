@@ -5,7 +5,6 @@ import org.deeplearning4j.ui.api.UIServer;
 import org.deeplearning4j.ui.model.stats.StatsListener;
 import org.deeplearning4j.ui.model.storage.FileStatsStorage;
 import org.deeplearning4j.ui.model.storage.InMemoryStatsStorage;
-import org.deeplearning4j.ui.storage.StatsStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +27,7 @@ public class TensorBoardExporter {
     private static AtomicBoolean initialized = new AtomicBoolean(false);
     private static UIServer uiServer;
     private static FileStatsStorage statsStorage;
-    private static StatsStorage inMemoryStatsStorage;
+    private static InMemoryStatsStorage inMemoryStatsStorage;
     
     /**
      * Constructeur par défaut
