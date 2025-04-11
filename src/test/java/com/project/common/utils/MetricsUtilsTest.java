@@ -39,38 +39,38 @@ public class MetricsUtilsTest {
         metricsList = new ArrayList<>();
         
         // Métriques pour l'époque 1
-        EvaluationMetrics metrics1 = new EvaluationMetrics(1, 0.75, 0.73, 0.72, 0.72, 200.0);
+        EvaluationMetrics metrics1 = new EvaluationMetrics(1, 0.75, 0.73, 0.72, 0.72, 200L);
         metricsList.add(metrics1);
         
         // Métriques pour l'époque 2
-        EvaluationMetrics metrics2 = new EvaluationMetrics(2, 0.82, 0.80, 0.78, 0.79, 180.0);
+        EvaluationMetrics metrics2 = new EvaluationMetrics(2, 0.82, 0.80, 0.78, 0.79, 180L);
         metricsList.add(metrics2);
         
         // Métriques pour l'époque 3
-        EvaluationMetrics metrics3 = new EvaluationMetrics(3, 0.88, 0.85, 0.83, 0.84, 190.0);
+        EvaluationMetrics metrics3 = new EvaluationMetrics(3, 0.88, 0.85, 0.83, 0.84, 190L);
         metricsList.add(metrics3);
     }
     
     @Test
     public void testValidateMetrics() {
         // Métriques qui respectent les seuils
-        EvaluationMetrics goodMetrics = new EvaluationMetrics(1, 0.85, 0.80, 0.75, 0.77, 200.0);
+        EvaluationMetrics goodMetrics = new EvaluationMetrics(1, 0.85, 0.80, 0.75, 0.77, 200L);
         assertTrue(MetricsUtils.validateMetrics(goodMetrics, config));
         
         // Métriques qui ne respectent pas l'accuracy minimale
-        EvaluationMetrics lowAccuracyMetrics = new EvaluationMetrics(1, 0.75, 0.80, 0.75, 0.77, 200.0);
+        EvaluationMetrics lowAccuracyMetrics = new EvaluationMetrics(1, 0.75, 0.80, 0.75, 0.77, 200L);
         assertFalse(MetricsUtils.validateMetrics(lowAccuracyMetrics, config));
         
         // Métriques qui ne respectent pas la precision minimale
-        EvaluationMetrics lowPrecisionMetrics = new EvaluationMetrics(1, 0.85, 0.70, 0.75, 0.77, 200.0);
+        EvaluationMetrics lowPrecisionMetrics = new EvaluationMetrics(1, 0.85, 0.70, 0.75, 0.77, 200L);
         assertFalse(MetricsUtils.validateMetrics(lowPrecisionMetrics, config));
         
         // Métriques qui ne respectent pas le recall minimal
-        EvaluationMetrics lowRecallMetrics = new EvaluationMetrics(1, 0.85, 0.80, 0.65, 0.77, 200.0);
+        EvaluationMetrics lowRecallMetrics = new EvaluationMetrics(1, 0.85, 0.80, 0.65, 0.77, 200L);
         assertFalse(MetricsUtils.validateMetrics(lowRecallMetrics, config));
         
         // Métriques qui ne respectent pas le F1-score minimal
-        EvaluationMetrics lowF1Metrics = new EvaluationMetrics(1, 0.85, 0.80, 0.75, 0.65, 200.0);
+        EvaluationMetrics lowF1Metrics = new EvaluationMetrics(1, 0.85, 0.80, 0.75, 0.65, 200L);
         assertFalse(MetricsUtils.validateMetrics(lowF1Metrics, config));
     }
     
@@ -91,9 +91,9 @@ public class MetricsUtilsTest {
         
         // Vérifier le format et le contenu
         assertTrue(content.startsWith("Epoch,Accuracy,Precision,Recall,F1Score,TrainingTime"));
-        assertTrue(content.contains("1,0.750000,0.730000,0.720000,0.720000,200.00"));
-        assertTrue(content.contains("2,0.820000,0.800000,0.780000,0.790000,180.00"));
-        assertTrue(content.contains("3,0.880000,0.850000,0.830000,0.840000,190.00"));
+        assertTrue(content.contains("1,0.750000,0.730000,0.720000,0.720000,200"));
+        assertTrue(content.contains("2,0.820000,0.800000,0.780000,0.790000,180"));
+        assertTrue(content.contains("3,0.880000,0.850000,0.830000,0.840000,190"));
     }
     
     @Test
@@ -103,9 +103,9 @@ public class MetricsUtilsTest {
         String reportPath = tempFile.getAbsolutePath();
         
         // Créer des métriques pour différents modèles
-        EvaluationMetrics vgg16Metrics = new EvaluationMetrics(100, 0.92, 0.89, 0.91, 0.90, 15000);
-        EvaluationMetrics resnetMetrics = new EvaluationMetrics(100, 0.94, 0.92, 0.90, 0.91, 18000);
-        EvaluationMetrics mobileNetMetrics = new EvaluationMetrics(100, 0.88, 0.87, 0.89, 0.88, 8000);
+        EvaluationMetrics vgg16Metrics = new EvaluationMetrics(100, 0.92, 0.89, 0.91, 0.90, 15000L);
+        EvaluationMetrics resnetMetrics = new EvaluationMetrics(100, 0.94, 0.92, 0.90, 0.91, 18000L);
+        EvaluationMetrics mobileNetMetrics = new EvaluationMetrics(100, 0.88, 0.87, 0.89, 0.88, 8000L);
         
         // Générer le rapport de comparaison
         MetricsUtils.generateModelComparisonReport(
@@ -147,8 +147,8 @@ public class MetricsUtilsTest {
         
         // Métriques et noms de tailles différentes
         EvaluationMetrics[] metrics = new EvaluationMetrics[] {
-            new EvaluationMetrics(1, 0.9, 0.9, 0.9, 0.9, 100),
-            new EvaluationMetrics(1, 0.8, 0.8, 0.8, 0.8, 100)
+            new EvaluationMetrics(1, 0.9, 0.9, 0.9, 0.9, 100L),
+            new EvaluationMetrics(1, 0.8, 0.8, 0.8, 0.8, 100L)
         };
         
         String[] names = new String[] { "Model1" }; // Un seul nom pour deux métriques
